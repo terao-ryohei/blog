@@ -1,0 +1,27 @@
+{
+  "editor.defaultFormatter": "biomejs.biome",
+  "biome.searchInPath": false,
+  "editor.codeActionsOnSave": {
+    "quickfix.biome": "always",
+    "source.organizeImports.biome": "explicit"
+  },
+  "editor.formatOnSave": true,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "cSpell.words": [
+    "budoux",
+    "Hiragino",
+    "honox",
+    "Kaku",
+    "Qiita",
+    "Terastech"
+  ],
+  "[mdx]": {
+    "editor.defaultFormatter": "unifiedjs.vscode-mdx"
+  },
+  "[xml]": {
+    "editor.defaultFormatter": "redhat.vscode-xml"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  }
+}

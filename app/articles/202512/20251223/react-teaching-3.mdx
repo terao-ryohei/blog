@@ -1,0 +1,864 @@
+---
+title: React勉強会資料 アーキテクチャ編
+date: 2025-12-23T09:06:13.640Z
+update: 2025-12-23T09:06:13.640Z
+description: Reactアプリケーションの設計原則とスケーラブルなディレクトリ構成を学ぶ
+iconUrl: /article-icons/react.svg
+tags: [{tag: React, icon: /article-icons/react.svg}]
+---
+
+## はじめに
+
+前回までで、Reactの基本的な概念とライフサイクルについて学びました。今回は、**実際のプロジェクトでどのようにコードを整理するか**、つまり**アーキテクチャ**について学んでいきます。
+
+小規模なプロジェクトでは適当にファイルを配置してもなんとかなりますが、プロジェクトが大きくなると：
+
+- どこに何があるのか分からなくなる
+- 同じようなコードが複数の場所に散らばる
+- 変更の影響範囲が読めずバグが増える
+- チームメンバー間で書き方がバラバラになる
+
+こうした問題を防ぐために、**設計原則**と**適切なディレクトリ構成**が必要です。
+
+## なぜアーキテクチャが重要なのか
+
+悪いアーキテクチャの例を見てみましょう。
+
+```md
+src/
+├── App.tsx                    # 1000行の巨大コンポーネント
+├── utils.ts                   # 関係ない関数が100個
+├── components/
+│   ├── Button.tsx
+│   ├── UserButton.tsx         # Buttonとほぼ同じ
+│   ├── ProductButton.tsx      # Buttonとほぼ同じ
+│   ├── UserProfile.tsx
+│   ├── UserProfileHeader.tsx  # UserProfileからしか使わない
+│   └── fetchUser.ts           # なぜかcomponentsの中に
+└── api.ts                     # 全てのAPI呼び出しが1ファイルに
+```
+
+この構成の問題点：
+
+- **関心の分離ができていない**: componentsにAPI呼び出しが混ざる
+- **再利用性が低い**: 似たようなコンポーネントが重複
+- **スケールしない**: ファイルが増えると手に負えなくなる
+- **テストしにくい**: 依存関係が複雑で単体テストが書けない
+
+## 設計原則を学ぶ
+
+良いアーキテクチャを作るための基本原則を学びましょう。
+
+### SOLID原則
+
+SOLID原則は、オブジェクト指向プログラミングの5つの基本原則です。Reactでも応用できます。
+
+#### 1. Single Responsibility Principle（単一責任の原則）
+
+**1つのコンポーネントは1つの責任だけを持つ**
+
+```jsx
+// ❌ 悪い例：複数の責任を持つ
+function UserDashboard() {
+  const [user, setUser] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
+  // ユーザー情報の取得
+  useEffect(() => {
+    fetch('/api/user').then(res => res.json()).then(setUser);
+  }, []);
+
+  // 投稿の取得
+  useEffect(() => {
+    fetch('/api/posts').then(res => res.json()).then(setPosts);
+  }, []);
+
+  // 通知の取得
+  useEffect(() => {
+    fetch('/api/notifications').then(res => res.json()).then(setNotifications);
+  }, []);
+
+  return (
+    <div>
+      {/* ユーザー情報、投稿、通知を全部表示 */}
+      <UserProfile user={user} />
+      <PostList posts={posts} />
+      <NotificationList notifications={notifications} />
+    </div>
+  );
+}
+```
+
+```jsx
+// ✅ 良い例：責任を分離
+function UserDashboard() {
+  return (
+    <div>
+      <UserProfileSection />
+      <PostListSection />
+      <NotificationSection />
+    </div>
+  );
+}
+
+function UserProfileSection() {
+  const { user } = useUser(); // カスタムフック
+  return <UserProfile user={user} />;
+}
+
+function PostListSection() {
+  const { posts } = usePosts(); // カスタムフック
+  return <PostList posts={posts} />;
+}
+
+function NotificationSection() {
+  const { notifications } = useNotifications(); // カスタムフック
+  return <NotificationList notifications={notifications} />;
+}
+```
+
+#### 2. Open/Closed Principle（開放閉鎖の原則）
+
+**拡張には開いていて、修正には閉じている**
+
+```jsx
+// ❌ 悪い例：新しいボタンタイプを追加するたびに修正が必要
+function Button({ type, children }) {
+  if (type === 'primary') {
+    return <button className="btn-primary">{children}</button>;
+  }
+  if (type === 'secondary') {
+    return <button className="btn-secondary">{children}</button>;
+  }
+  if (type === 'danger') {
+    return <button className="btn-danger">{children}</button>;
+  }
+  // 新しいタイプを追加するたびにif文を追加...
+}
+```
+
+```jsx
+// ✅ 良い例：拡張可能な設計
+function Button({ variant = 'primary', children, ...props }) {
+  return (
+    <button className={`btn btn-${variant}`} {...props}>
+      {children}
+    </button>
+  );
+}
+
+// 新しいバリエーションはCSSで追加するだけ
+<Button variant="primary">保存</Button>
+<Button variant="danger">削除</Button>
+<Button variant="custom">カスタム</Button> // コンポーネントの修正不要
+```
+
+#### 3. Liskov Substitution Principle（リスコフの置換原則）
+
+**派生型は基本型と置き換え可能であるべき**
+
+Reactでは、コンポーネントのpropsインターフェースを守ることに相当します。
+
+```jsx
+// ✅ 良い例：一貫したインターフェース
+interface ButtonProps {
+  onClick: () => void;
+  children: ReactNode;
+  disabled?: boolean;
+}
+
+function PrimaryButton({ onClick, children, disabled }: ButtonProps) {
+  return (
+    <button onClick={onClick} disabled={disabled} className="btn-primary">
+      {children}
+    </button>
+  );
+}
+
+function IconButton({ onClick, children, disabled }: ButtonProps) {
+  return (
+    <button onClick={onClick} disabled={disabled} className="btn-icon">
+      {children}
+    </button>
+  );
+}
+
+// どちらのボタンも同じインターフェースで使える
+<PrimaryButton onClick={handleClick}>保存</PrimaryButton>
+<IconButton onClick={handleClick}>保存</IconButton>
+```
+
+#### 4. Interface Segregation Principle（インターフェース分離の原則）
+
+**不要なpropsを強制しない**
+
+```jsx
+// ❌ 悪い例：使わないpropsまで受け取る
+interface UserCardProps {
+  user: User;
+  onEdit: () => void;
+  onDelete: () => void;
+  onShare: () => void;
+  onReport: () => void;
+  // 使わない機能まで全部propsに...
+}
+
+function SimpleUserCard({ user }: UserCardProps) {
+  // onEdit, onDeleteなどは使わないのに受け取る必要がある
+  return <div>{user.name}</div>;
+}
+```
+
+```jsx
+// ✅ 良い例：必要なpropsだけ
+interface UserCardProps {
+  user: User;
+}
+
+interface EditableUserCardProps extends UserCardProps {
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function UserCard({ user }: UserCardProps) {
+  return <div>{user.name}</div>;
+}
+
+function EditableUserCard({ user, onEdit, onDelete }: EditableUserCardProps) {
+  return (
+    <div>
+      <UserCard user={user} />
+      <button onClick={onEdit}>編集</button>
+      <button onClick={onDelete}>削除</button>
+    </div>
+  );
+}
+```
+
+#### 5. Dependency Inversion Principle（依存性逆転の原則）
+
+**具体的な実装ではなく、抽象に依存する**
+
+```jsx
+// ❌ 悪い例：具体的なAPIクライアントに依存
+function UserList() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    // 直接fetch APIに依存
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(setUsers);
+  }, []);
+
+  return <ul>{users.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
+}
+```
+
+```jsx
+// ✅ 良い例：抽象化されたフックに依存
+function UserList() {
+  // どのようにデータを取得するかは関心外
+  const { users } = useUsers();
+
+  return <ul>{users.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
+}
+
+// データ取得ロジックはカスタムフックに隠蔽
+function useUsers() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    // API実装が変わってもコンポーネント側は影響を受けない
+    apiClient.getUsers().then(setUsers);
+  }, []);
+
+  return { users };
+}
+```
+
+### KISS原則（Keep It Simple, Stupid）
+
+**シンプルに保つ**
+
+```jsx
+// ❌ 悪い例：過度に抽象化
+function Button({ config }) {
+  const {
+    content,
+    styleConfig,
+    behaviorConfig,
+    animationConfig
+  } = config;
+
+  const computedStyles = useMemo(() => {
+    return computeStyles(styleConfig);
+  }, [styleConfig]);
+
+  const handleClick = useCallback(() => {
+    if (behaviorConfig.validate) {
+      if (!behaviorConfig.validator()) return;
+    }
+    behaviorConfig.onClick();
+  }, [behaviorConfig]);
+
+  return (
+    <motion.button
+      style={computedStyles}
+      onClick={handleClick}
+      {...animationConfig}
+    >
+      {content}
+    </motion.button>
+  );
+}
+
+// 使う側も複雑
+<Button config={{
+  content: '保存',
+  styleConfig: { theme: 'primary', size: 'md' },
+  behaviorConfig: {
+    validate: true,
+    validator: () => true,
+    onClick: handleSave
+  },
+  animationConfig: { initial: {}, animate: {} }
+}} />
+```
+
+```jsx
+// ✅ 良い例：シンプルで明確
+function Button({ children, onClick, variant = 'primary' }) {
+  return (
+    <button className={`btn btn-${variant}`} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+// 使う側もシンプル
+<Button onClick={handleSave} variant="primary">
+  保存
+</Button>
+```
+
+### DRY原則（Don't Repeat Yourself）
+
+**同じことを繰り返さない**
+
+```jsx
+// ❌ 悪い例：重複したコード
+function UserProfile() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/user')
+      .then(res => res.json())
+      .then(data => {
+        setUser(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  return <div>{user?.name}</div>;
+}
+
+function PostList() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/posts')
+      .then(res => res.json())
+      .then(data => {
+        setPosts(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  return <ul>{posts.map(p => <li key={p.id}>{p.title}</li>)}</ul>;
+}
+```
+
+```jsx
+// ✅ 良い例：共通ロジックを抽出
+function useFetch(url) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err);
+        setLoading(false);
+      });
+  }, [url]);
+
+  return { data, loading, error };
+}
+
+function UserProfile() {
+  const { data: user, loading, error } = useFetch('/api/user');
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  return <div>{user?.name}</div>;
+}
+
+function PostList() {
+  const { data: posts, loading, error } = useFetch('/api/posts');
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  return <ul>{posts.map(p => <li key={p.id}>{p.title}</li>)}</ul>;
+}
+```
+
+## Feature-basedディレクトリ構成
+
+大規模なReactアプリケーションでは、**Feature-based（機能ベース）**のディレクトリ構成が推奨されます。これは[bulletproof-react](https://github.com/alan2207/bulletproof-react)でも採用されている構成です。
+
+### 基本構成
+
+```md
+src/
+├── app/                      # アプリケーションのルート
+│   ├── index.tsx            # エントリーポイント
+│   ├── provider.tsx         # グローバルプロバイダー
+│   └── router.tsx           # ルーティング設定
+│
+├── components/              # 共有コンポーネント
+│   ├── Button/
+│   │   ├── Button.tsx
+│   │   ├── Button.test.tsx
+│   │   └── index.ts
+│   ├── Input/
+│   └── Modal/
+│
+├── features/                # 機能ごとのモジュール
+│   ├── auth/               # 認証機能
+│   │   ├── api/            # 認証関連のAPI呼び出し
+│   │   │   ├── login.ts
+│   │   │   └── logout.ts
+│   │   ├── components/     # 認証画面のコンポーネント
+│   │   │   ├── LoginForm.tsx
+│   │   │   └── RegisterForm.tsx
+│   │   ├── hooks/          # 認証関連のカスタムフック
+│   │   │   └── useAuth.ts
+│   │   ├── stores/         # 認証状態の管理
+│   │   │   └── authStore.ts
+│   │   ├── types/          # 認証関連の型定義
+│   │   │   └── index.ts
+│   │   └── index.ts        # 公開API
+│   │
+│   ├── users/              # ユーザー管理機能
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── index.ts
+│   │
+│   └── posts/              # 投稿機能
+│       ├── api/
+│       ├── components/
+│       ├── hooks/
+│       └── index.ts
+│
+├── hooks/                   # 共有カスタムフック
+│   ├── useLocalStorage.ts
+│   └── useDebounce.ts
+│
+├── lib/                     # 外部ライブラリのラッパー
+│   ├── axios.ts            # axios設定
+│   └── react-query.ts      # React Query設定
+│
+├── stores/                  # グローバルな状態管理
+│   └── themeStore.ts
+│
+├── types/                   # 共有型定義
+│   └── index.ts
+│
+└── utils/                   # ユーティリティ関数
+    ├── format.ts
+    └── validation.ts
+```
+
+### Feature-basedの重要なルール
+
+#### 1. 機能内の凝集度を高める
+
+各featureディレクトリは、その機能に関連するすべてを含みます。
+
+```typescript
+// features/posts/api/getPosts.ts
+export async function getPosts() {
+  const response = await apiClient.get('/posts');
+  return response.data;
+}
+
+// features/posts/hooks/usePosts.ts
+import { useQuery } from '@tanstack/react-query';
+import { getPosts } from '../api/getPosts';
+
+export function usePosts() {
+  return useQuery({
+    queryKey: ['posts'],
+    queryFn: getPosts
+  });
+}
+
+// features/posts/components/PostList.tsx
+import { usePosts } from '../hooks/usePosts';
+
+export function PostList() {
+  const { data: posts, isLoading } = usePosts();
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <ul>
+      {posts?.map(post => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+
+// features/posts/index.ts - 公開するものだけエクスポート
+export { PostList } from './components/PostList';
+export { usePosts } from './hooks/usePosts';
+// 内部実装（APIやstoreなど）は外部に公開しない
+```
+
+#### 2. 機能間の依存を制限する
+
+**重要**: feature間で直接importしてはいけません。
+
+```typescript
+// ❌ 悪い例：feature間の直接import
+// features/posts/components/PostCard.tsx
+import { UserAvatar } from '../../users/components/UserAvatar'; // NG!
+
+export function PostCard({ post }) {
+  return (
+    <div>
+      <UserAvatar userId={post.userId} /> {/* 直接依存 */}
+      <h3>{post.title}</h3>
+    </div>
+  );
+}
+```
+
+```typescript
+// ✅ 良い例：共有コンポーネント化 or コンポジション
+// features/posts/components/PostCard.tsx
+export function PostCard({ post, avatar }) {
+  return (
+    <div>
+      {avatar} {/* 外から注入 */}
+      <h3>{post.title}</h3>
+    </div>
+  );
+}
+
+// app層で組み立てる
+// app/pages/PostsPage.tsx
+import { PostList } from '@/features/posts';
+import { UserAvatar } from '@/features/users';
+
+export function PostsPage() {
+  const { posts } = usePosts();
+
+  return (
+    <div>
+      {posts.map(post => (
+        <PostCard
+          key={post.id}
+          post={post}
+          avatar={<UserAvatar userId={post.userId} />}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+#### 3. 一方向のコードフロー
+
+コードの依存関係は必ず一方向になるようにします。
+
+```
+共有コード (components, hooks, utils)
+    ↓
+Features (auth, users, posts)
+    ↓
+App (pages, router)
+```
+
+```typescript
+// ✅ OK: 下位層から上位層への参照
+// features/users/components/UserProfile.tsx
+import { Button } from '@/components/Button'; // OK: featuresから共有コンポーネント
+
+// ✅ OK: App層から機能層への参照
+// app/pages/UserPage.tsx
+import { UserProfile } from '@/features/users'; // OK: appからfeatures
+
+// ❌ NG: 上位層から下位層への参照は禁止
+// components/Button.tsx
+import { useAuth } from '@/features/auth'; // NG: 共有コンポーネントからfeatures
+
+// ❌ NG: 機能間の相互依存
+// features/posts/hooks/usePosts.ts
+import { useUser } from '@/features/users'; // NG: feature間の依存
+```
+
+## 実践例：TODOアプリのディレクトリ構成
+
+実際のプロジェクトでどう適用するか見てみましょう。
+
+```md
+src/
+├── app/
+│   ├── index.tsx
+│   ├── provider.tsx
+│   └── routes.tsx
+│
+├── components/
+│   ├── Button/
+│   │   ├── Button.tsx
+│   │   └── index.ts
+│   ├── Input/
+│   └── Checkbox/
+│
+├── features/
+│   ├── todos/
+│   │   ├── api/
+│   │   │   ├── getTodos.ts
+│   │   │   ├── createTodo.ts
+│   │   │   ├── updateTodo.ts
+│   │   │   └── deleteTodo.ts
+│   │   ├── components/
+│   │   │   ├── TodoList.tsx
+│   │   │   ├── TodoItem.tsx
+│   │   │   ├── TodoForm.tsx
+│   │   │   └── TodoFilter.tsx
+│   │   ├── hooks/
+│   │   │   ├── useTodos.ts
+│   │   │   ├── useCreateTodo.ts
+│   │   │   └── useUpdateTodo.ts
+│   │   ├── stores/
+│   │   │   └── todoFilterStore.ts
+│   │   ├── types/
+│   │   │   └── index.ts
+│   │   └── index.ts
+│   │
+│   └── auth/
+│       ├── api/
+│       ├── components/
+│       ├── hooks/
+│       └── index.ts
+│
+└── lib/
+    └── react-query.ts
+```
+
+```typescript
+// features/todos/types/index.ts
+export interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+}
+
+// features/todos/api/getTodos.ts
+import { apiClient } from '@/lib/axios';
+import type { Todo } from '../types';
+
+export async function getTodos(): Promise<Todo[]> {
+  const response = await apiClient.get('/todos');
+  return response.data;
+}
+
+// features/todos/hooks/useTodos.ts
+import { useQuery } from '@tanstack/react-query';
+import { getTodos } from '../api/getTodos';
+
+export function useTodos() {
+  return useQuery({
+    queryKey: ['todos'],
+    queryFn: getTodos
+  });
+}
+
+// features/todos/components/TodoList.tsx
+import { useTodos } from '../hooks/useTodos';
+import { TodoItem } from './TodoItem';
+
+export function TodoList() {
+  const { data: todos, isLoading } = useTodos();
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <ul>
+      {todos?.map(todo => (
+        <TodoItem key={todo.id} todo={todo} />
+      ))}
+    </ul>
+  );
+}
+
+// features/todos/index.ts
+// 外部に公開するもののみエクスポート
+export { TodoList } from './components/TodoList';
+export { TodoForm } from './components/TodoForm';
+export { useTodos } from './hooks/useTodos';
+export type { Todo } from './types';
+
+// app/pages/TodosPage.tsx
+import { TodoList, TodoForm } from '@/features/todos';
+
+export function TodosPage() {
+  return (
+    <div>
+      <h1>TODOリスト</h1>
+      <TodoForm />
+      <TodoList />
+    </div>
+  );
+}
+```
+
+## よくあるアンチパターン
+
+### 1. God Component（神コンポーネント）
+
+```jsx
+// ❌ 1000行の巨大コンポーネント
+function Dashboard() {
+  // 20個のuseState
+  // 15個のuseEffect
+  // 30個の関数
+  // 500行のJSX
+  return <div>...</div>;
+}
+```
+
+**解決策**: 責任を分割し、複数のコンポーネントに分ける
+
+### 2. Props Drilling（バケツリレー）
+
+```jsx
+// ❌ 深いネストでpropsを渡し続ける
+<App user={user}>
+  <Layout user={user}>
+    <Sidebar user={user}>
+      <UserMenu user={user} />
+    </Sidebar>
+  </Layout>
+</App>
+```
+
+**解決策**: Context API、状態管理ライブラリ、またはコンポジションを使う
+
+### 3. ビジネスロジックの混在
+
+```jsx
+// ❌ UIコンポーネントにビジネスロジック
+function UserForm() {
+  const handleSubmit = async (data) => {
+    // バリデーション
+    if (!data.email.includes('@')) return;
+    if (data.password.length < 8) return;
+
+    // API呼び出し
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    // データ変換
+    const userData = await response.json();
+    const transformed = {
+      ...userData,
+      fullName: `${userData.firstName} ${userData.lastName}`
+    };
+
+    // 状態更新
+    setUser(transformed);
+  };
+
+  return <form onSubmit={handleSubmit}>...</form>;
+}
+```
+
+**解決策**: ビジネスロジックをカスタムフックや専用の関数に分離
+
+```jsx
+// ✅ ロジックを分離
+function UserForm() {
+  const { createUser } = useCreateUser();
+
+  const handleSubmit = (data) => {
+    createUser(data); // ロジックの詳細は隠蔽
+  };
+
+  return <form onSubmit={handleSubmit}>...</form>;
+}
+```
+
+## まとめ
+
+良いReactアーキテクチャのポイント：
+
+1. **SOLID原則を意識する**
+   - 単一責任の原則：1つのコンポーネントは1つの責任
+   - 開放閉鎖の原則：拡張可能な設計
+   - 依存性逆転の原則：抽象に依存する
+
+2. **シンプルに保つ（KISS）**
+   - 過度な抽象化を避ける
+   - 必要になるまで複雑にしない
+
+3. **繰り返しを避ける（DRY）**
+   - 共通ロジックはカスタムフックに
+   - 共通UIは共有コンポーネントに
+
+4. **Feature-basedディレクトリ構成**
+   - 機能ごとにディレクトリを分ける
+   - 機能間の依存を制限する
+   - 一方向のコードフローを維持する
+
+良いアーキテクチャは、チーム全体の生産性を向上させます。最初は少し手間に感じるかもしれませんが、プロジェクトが大きくなるほどその価値が実感できるはずです！
+
+## 参考リンク
+
+<ExternalOgp url="https://github.com/alan2207/bulletproof-react"/>
+
+<ExternalOgp url="https://ja.react.dev/learn/thinking-in-react"/>

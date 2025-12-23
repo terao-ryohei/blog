@@ -1,0 +1,560 @@
+---
+title: React勉強会資料 ライフサイクル編
+date: 2025-12-23T08:32:26.395Z
+update: 2025-12-23T08:32:26.395Z
+description: ReactコンポーネントのライフサイクルとuseEffectの使い方を実例とともに解説
+iconUrl: /article-icons/react.svg
+tags: [{tag: React, icon: /article-icons/react.svg}]
+---
+
+## はじめに
+
+前回の導入編では、Reactの基本的な概念を学びました。今回は**コンポーネントのライフサイクル**について深掘りしていきます。
+
+ライフサイクルを理解することで、以下のようなことができるようになります：
+
+- コンポーネントが表示された時にAPIからデータを取得する
+- 画面を離れる時に、タイマーやイベントリスナーを解除する
+- propsやstateの変更を検知して、必要な処理を実行する
+
+## コンポーネントのライフサイクルとは
+
+ライフサイクルとは、**コンポーネントが生まれてから消えるまでの一連の流れ**のことです。
+
+人間の一生に例えると：
+
+1. **誕生（マウント）**: コンポーネントが画面に表示される
+2. **成長（更新）**: propsやstateが変わって再レンダリングされる
+3. **死（アンマウント）**: コンポーネントが画面から消える
+
+```jsx
+function UserProfile() {
+  // 1. 誕生：初回レンダリング時
+  console.log('コンポーネントが生まれました');
+
+  // 2. 成長：stateやpropsが変わると再レンダリング
+  const [count, setCount] = useState(0);
+
+  // 3. 死：画面から消える時（後で説明）
+  return <div>ユーザープロフィール</div>;
+}
+```
+
+## クラスコンポーネント時代のライフサイクル（参考）
+
+React Hooksが登場する前は、**クラスコンポーネント**でライフサイクルメソッドを使っていました。
+
+```jsx
+// 古い書き方（クラスコンポーネント）
+class UserProfile extends React.Component {
+  // マウント時：画面に表示された直後
+  componentDidMount() {
+    console.log('コンポーネントが表示されました');
+    // APIからデータを取得
+    fetch('/api/user').then(/* ... */);
+  }
+
+  // 更新時：propsやstateが変わった後
+  componentDidUpdate(prevProps, prevState) {
+    console.log('何かが更新されました');
+    if (this.props.userId !== prevProps.userId) {
+      // userIdが変わったら再取得
+      fetch(`/api/user/${this.props.userId}`);
+    }
+  }
+
+  // アンマウント時：画面から消える直前
+  componentWillUnmount() {
+    console.log('コンポーネントが消えます');
+    // タイマーやイベントリスナーを解除
+  }
+
+  render() {
+    return <div>ユーザープロフィール</div>;
+  }
+}
+```
+
+問題点：
+- **複雑で覚えることが多い**
+- **関連するロジックがバラバラに散らばる**
+- **コードが冗長になりがち**
+
+## 現代の方法：useEffect Hook
+
+React 16.8以降、**関数コンポーネント + Hooks**が主流になりました。ライフサイクルは`useEffect`フックで管理します。
+
+### useEffectの基本
+
+```jsx
+import { useEffect, useState } from 'react';
+
+function UserProfile() {
+  const [user, setUser] = useState(null);
+
+  // useEffect: 副作用（サイドエフェクト）を実行する
+  useEffect(() => {
+    console.log('この関数が実行されます');
+
+    // APIからデータを取得
+    fetch('/api/user')
+      .then(res => res.json())
+      .then(data => setUser(data));
+  }, []); // ← 依存配列（後で詳しく説明）
+
+  return <div>{user?.name}</div>;
+}
+```
+
+**副作用（サイドエフェクト）とは？**
+
+Reactの外の世界とやり取りすること：
+- API通信
+- DOM操作（document.getElementById など）
+- タイマー（setTimeout, setInterval）
+- ローカルストレージへのアクセス
+- イベントリスナーの登録
+
+## 依存配列：useEffectの実行タイミングを制御する
+
+`useEffect`の第2引数（依存配列）で、**いつ実行するか**を制御できます。
+
+### パターン1: 依存配列なし（毎回実行）
+
+```jsx
+useEffect(() => {
+  console.log('毎回実行されます');
+  // レンダリングのたびに実行される
+});
+```
+
+**注意**: これはほとんど使いません。無限ループのリスクがあります。
+
+```jsx
+// ❌ 無限ループの例
+function BadExample() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    setCount(count + 1); // stateを更新
+    // → 再レンダリング → useEffectが実行 → stateを更新 → ...（無限ループ）
+  }); // 依存配列がない！
+
+  return <div>{count}</div>;
+}
+```
+
+### パターン2: 空の依存配列（マウント時のみ）
+
+```jsx
+useEffect(() => {
+  console.log('初回マウント時のみ実行');
+
+  // APIからデータを取得（1回だけ）
+  fetch('/api/user')
+    .then(res => res.json())
+    .then(data => setUser(data));
+}, []); // ← 空の配列
+```
+
+**使い所**:
+- 初回表示時のデータ取得
+- イベントリスナーの登録（1回だけ）
+
+### パターン3: 特定の値の変更を監視
+
+```jsx
+function SearchResults({ query }) {
+  const [results, setResults] = useState([]);
+
+  useEffect(() => {
+    console.log(`queryが"${query}"に変わりました`);
+
+    // 検索を実行
+    fetch(`/api/search?q=${query}`)
+      .then(res => res.json())
+      .then(data => setResults(data));
+  }, [query]); // ← queryが変わった時だけ実行
+
+  return <ul>{results.map(r => <li key={r.id}>{r.name}</li>)}</ul>;
+}
+```
+
+**使い所**:
+- propsやstateの変更に応じて処理を実行
+- 検索キーワードが変わったら再検索
+- ユーザーIDが変わったらプロフィールを再取得
+
+## クリーンアップ処理：後片付けの重要性
+
+コンポーネントが消える時や、次の副作用が実行される前に**クリーンアップ処理**を実行できます。
+
+### クリーンアップが必要な例
+
+```jsx
+function Timer() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    console.log('タイマー開始');
+
+    // 1秒ごとにカウントアップ
+    const timerId = setInterval(() => {
+      setSeconds(s => s + 1);
+    }, 1000);
+
+    // クリーンアップ関数を返す
+    return () => {
+      console.log('タイマー停止');
+      clearInterval(timerId); // タイマーを解除
+    };
+  }, []); // マウント時のみ
+
+  return <div>{seconds}秒経過</div>;
+}
+```
+
+**クリーンアップしないとどうなる？**
+
+```jsx
+// ❌ クリーンアップなし（メモリリーク）
+function BadTimer() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    setInterval(() => {
+      setSeconds(s => s + 1);
+    }, 1000);
+    // クリーンアップがない！
+    // → コンポーネントが消えてもタイマーが動き続ける
+    // → メモリリーク、エラーの原因
+  }, []);
+
+  return <div>{seconds}秒経過</div>;
+}
+```
+
+### クリーンアップが必要なケース
+
+#### 1. イベントリスナー
+
+```jsx
+function WindowSize() {
+  const [width, setWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWidth(window.innerWidth);
+    };
+
+    // イベントリスナーを登録
+    window.addEventListener('resize', handleResize);
+
+    // クリーンアップ：リスナーを解除
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return <div>画面幅: {width}px</div>;
+}
+```
+
+#### 2. WebSocket接続
+
+```jsx
+function ChatRoom({ roomId }) {
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    // WebSocket接続を開始
+    const ws = new WebSocket(`wss://chat.example.com/${roomId}`);
+
+    ws.onmessage = (event) => {
+      setMessages(m => [...m, event.data]);
+    };
+
+    // クリーンアップ：接続を閉じる
+    return () => {
+      ws.close();
+    };
+  }, [roomId]); // roomIdが変わったら再接続
+
+  return <ul>{messages.map((m, i) => <li key={i}>{m}</li>)}</ul>;
+}
+```
+
+#### 3. APIリクエストのキャンセル
+
+```jsx
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    // AbortControllerでキャンセル可能にする
+    const controller = new AbortController();
+
+    fetch(`/api/user/${userId}`, {
+      signal: controller.signal
+    })
+      .then(res => res.json())
+      .then(data => setUser(data))
+      .catch(err => {
+        if (err.name === 'AbortError') {
+          console.log('リクエストがキャンセルされました');
+        }
+      });
+
+    // クリーンアップ：リクエストをキャンセル
+    return () => {
+      controller.abort();
+    };
+  }, [userId]); // userIdが変わったら前のリクエストをキャンセル
+
+  return <div>{user?.name}</div>;
+}
+```
+
+## 実践例：ユーザー検索機能
+
+複数のuseEffectを組み合わせた実践的な例です。
+
+```jsx
+function UserSearch() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // 検索実行（queryが変わるたびに実行）
+  useEffect(() => {
+    // 空の検索語は無視
+    if (!query) {
+      setResults([]);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const controller = new AbortController();
+
+    // 300msのデバウンス（後述）
+    const timerId = setTimeout(() => {
+      fetch(`/api/search?q=${query}`, {
+        signal: controller.signal
+      })
+        .then(res => res.json())
+        .then(data => {
+          setResults(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            setError('検索に失敗しました');
+            setLoading(false);
+          }
+        });
+    }, 300);
+
+    // クリーンアップ
+    return () => {
+      clearTimeout(timerId);
+      controller.abort();
+    };
+  }, [query]);
+
+  // ページ離脱時のログ（マウント・アンマウント）
+  useEffect(() => {
+    console.log('検索ページが表示されました');
+
+    return () => {
+      console.log('検索ページを離れました');
+    };
+  }, []);
+
+  return (
+    <div>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="ユーザー名を入力"
+      />
+      {loading && <p>検索中...</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <ul>
+        {results.map(user => (
+          <li key={user.id}>{user.name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## よくある間違いと対処法
+
+### 間違い1: 依存配列を正しく指定していない
+
+```jsx
+// ❌ 間違い：countが依存配列にない
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const timerId = setInterval(() => {
+      console.log(count); // 常に0が表示される
+      setCount(count + 1); // 常に0 + 1 = 1になる
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, []); // countが依存配列にない！
+
+  return <div>{count}</div>;
+}
+
+// ✅ 正解1：関数型の更新を使う
+useEffect(() => {
+  const timerId = setInterval(() => {
+    setCount(c => c + 1); // 前の値を元に更新
+  }, 1000);
+
+  return () => clearInterval(timerId);
+}, []); // 依存なし
+
+// ✅ 正解2：依存配列に追加（ただしタイマーが再生成される）
+useEffect(() => {
+  const timerId = setInterval(() => {
+    setCount(count + 1);
+  }, 1000);
+
+  return () => clearInterval(timerId);
+}, [count]); // countを依存配列に追加
+```
+
+### 間違い2: useEffect内でasync/awaitを直接使う
+
+```jsx
+// ❌ 間違い：useEffectをasyncにできない
+useEffect(async () => {
+  const data = await fetch('/api/user');
+  // エラー！useEffectはクリーンアップ関数を返す必要がある
+}, []);
+
+// ✅ 正解：内部でasync関数を定義
+useEffect(() => {
+  const fetchUser = async () => {
+    const res = await fetch('/api/user');
+    const data = await res.json();
+    setUser(data);
+  };
+
+  fetchUser();
+}, []);
+
+// ✅ または即座実行関数
+useEffect(() => {
+  (async () => {
+    const res = await fetch('/api/user');
+    const data = await res.json();
+    setUser(data);
+  })();
+}, []);
+```
+
+### 間違い3: useEffectを条件分岐の中に書く
+
+```jsx
+// ❌ 間違い：Hooksは常に同じ順序で呼ばれる必要がある
+function UserProfile({ isLoggedIn }) {
+  if (isLoggedIn) {
+    useEffect(() => {
+      // これはNG！
+    }, []);
+  }
+}
+
+// ✅ 正解：useEffect内で条件分岐
+function UserProfile({ isLoggedIn }) {
+  useEffect(() => {
+    if (isLoggedIn) {
+      // 処理
+    }
+  }, [isLoggedIn]);
+}
+```
+
+## useEffectの実行順序
+
+複数のuseEffectがある場合の実行順序を理解しましょう。
+
+```jsx
+function LifecycleDemo() {
+  const [count, setCount] = useState(0);
+
+  console.log('1. レンダリング');
+
+  useEffect(() => {
+    console.log('3. useEffect（依存なし）');
+  });
+
+  useEffect(() => {
+    console.log('4. useEffect（空の依存配列）- マウント時のみ');
+  }, []);
+
+  useEffect(() => {
+    console.log(`5. useEffect（count = ${count}）`);
+  }, [count]);
+
+  console.log('2. レンダリング終了前');
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>増やす</button>
+    </div>
+  );
+}
+
+// 初回マウント時の出力：
+// 1. レンダリング
+// 2. レンダリング終了前
+// 3. useEffect（依存なし）
+// 4. useEffect（空の依存配列）- マウント時のみ
+// 5. useEffect（count = 0）
+
+// ボタンクリック後：
+// 1. レンダリング
+// 2. レンダリング終了前
+// 3. useEffect（依存なし）
+// 5. useEffect（count = 1）
+```
+
+ポイント：
+- **useEffectはレンダリング後に実行される**
+- 空の依存配列のuseEffectは初回のみ
+- 依存配列に値があるuseEffectはその値が変わった時のみ
+
+## まとめ
+
+Reactのライフサイクル管理は`useEffect`で行います：
+
+1. **基本構文**: `useEffect(() => { /* 副作用 */ }, [依存配列])`
+2. **実行タイミング**:
+   - `[]` - マウント時のみ
+   - `[value]` - valueが変わった時
+   - 依存配列なし - 毎レンダリング（通常使わない）
+3. **クリーンアップ**: `return () => { /* 後片付け */ }`
+4. **よくある用途**:
+   - データ取得
+   - イベントリスナー登録
+   - タイマー設定
+   - WebSocket接続
+
+次回は、より高度なHooks（`useMemo`, `useCallback`, `useRef`など）について学んでいきましょう！
+
+## 参考リンク
+
+<ExternalOgp url="https://ja.react.dev/reference/react/useEffect"/>
+
+<ExternalOgp url="https://ja.react.dev/learn/synchronizing-with-effects"/>

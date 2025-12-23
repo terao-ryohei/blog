@@ -1,0 +1,338 @@
+---
+title: React勉強会資料 導入編
+date: 2025-12-23T08:16:51.528Z
+update: 2025-12-23T08:16:51.528Z
+description: Webフロントエンドの役割から、Reactの誕生、モダンフロントエンドの概念まで初学者向けに解説
+iconUrl: /article-icons/react.svg
+tags: [{tag: React, icon: /article-icons/react.svg}]
+---
+
+## はじめに
+
+この記事はReactを学び始めるジュニアエンジニア向けの勉強会資料です。「なぜReactが生まれたのか」「何が革新的だったのか」を理解することで、これからReactを学ぶ上での土台を作ることを目指します。
+
+## Webフロントエンドの役割とは
+
+Webフロントエンドとは、**ユーザーが直接目にして触れる部分**のことです。ブラウザ上で動作し、ユーザーとのやり取りを担当します。
+
+具体的には以下のような役割があります：
+
+- **情報の表示**: サーバーから受け取ったデータを画面に表示する
+- **ユーザー操作の受付**: ボタンクリックや入力フォームなどのイベントを処理する
+- **インタラクション**: ユーザーの操作に応じて画面を動的に変化させる
+- **UX（ユーザー体験）の提供**: 快適で使いやすいインターフェースを実現する
+
+### 昔のWebフロントエンド
+
+2000年代のWebサイトは比較的シンプルでした。
+
+```html
+<!-- 昔ながらのWebページ -->
+<html>
+  <body>
+    <h1>商品一覧</h1>
+    <div id="product-list">
+      <!-- サーバー側で生成されたHTMLがそのまま表示される -->
+    </div>
+    <script>
+      // jQueryで要素を操作
+      $('#button').click(function() {
+        $('#product-list').html('<p>読み込み中...</p>');
+        // 新しいページをリクエストして全体をリロード
+        location.href = '/products/new';
+      });
+    </script>
+  </body>
+</html>
+```
+
+この時代の課題：
+- ページ遷移のたびに**画面全体がリロード**される（白い画面が一瞬表示される）
+- DOM操作が散らばり、**コードの見通しが悪い**
+- 画面の状態管理が難しく、**バグが発生しやすい**
+
+## Reactとは
+
+[React](https://react.dev/)は、**Facebookが2013年に公開したJavaScriptライブラリ**です。UIを構築するための革新的なアプローチを提供し、フロントエンド開発の世界を大きく変えました。
+
+### Reactが解決した問題
+
+Reactが登場する前、複雑なWebアプリケーションを作るのは大変でした。
+
+例えば、「いいねボタン」を実装する場合：
+
+```javascript
+// jQuery時代の実装
+$('#like-button').click(function() {
+  const count = parseInt($('#like-count').text());
+  $('#like-count').text(count + 1);
+  $('#like-button').addClass('liked');
+  // さらに他の場所の表示も更新...
+  $('#header-like-count').text(count + 1);
+  // 状態が色々な場所に散らばる
+});
+```
+
+問題点：
+- **表示と処理が分離していない**（HTMLとJSが密結合）
+- **同じデータを複数の場所で管理**（バグの温床）
+- **変更の影響範囲が分かりにくい**
+
+### Reactのアプローチ
+
+Reactは「**コンポーネント**」という概念でこれを解決しました。
+
+```jsx
+// Reactでの実装
+function LikeButton() {
+  const [count, setCount] = useState(0);
+  const [liked, setLiked] = useState(false);
+
+  const handleClick = () => {
+    setCount(count + 1);
+    setLiked(true);
+  };
+
+  return (
+    <button
+      className={liked ? 'liked' : ''}
+      onClick={handleClick}
+    >
+      いいね {count}
+    </button>
+  );
+}
+```
+
+特徴：
+- **見た目と処理が一箇所にまとまっている**（コンポーネント）
+- **状態（state）が一箇所で管理されている**
+- **宣言的に書ける**（「どう変更するか」ではなく「どう見えるべきか」を書く）
+
+## モダンフロントエンドとは
+
+Reactの登場以降、フロントエンド開発は「**モダンフロントエンド**」と呼ばれる新しい時代に入りました。
+
+### モダンフロントエンドの特徴
+
+#### 1. コンポーネント指向
+
+UIを**再利用可能な部品（コンポーネント）**として構築します。
+
+```jsx
+// ボタンコンポーネントを定義
+function Button({ children, onClick }) {
+  return <button onClick={onClick}>{children}</button>;
+}
+
+// 色々な場所で再利用
+<Button onClick={handleSave}>保存</Button>
+<Button onClick={handleDelete}>削除</Button>
+```
+
+#### 2. 宣言的UI
+
+「**どのように変更するか**」ではなく、「**どうあるべきか**」を記述します。
+
+```jsx
+// 宣言的：状態に応じてどう見えるべきかを記述
+function UserStatus({ isLoggedIn }) {
+  return (
+    <div>
+      {isLoggedIn ? <p>ログイン中</p> : <p>ログインしてください</p>}
+    </div>
+  );
+}
+```
+
+従来の命令的な書き方だと：
+
+```javascript
+// 命令的：DOMを直接操作して変更する
+if (isLoggedIn) {
+  document.getElementById('status').innerHTML = '<p>ログイン中</p>';
+} else {
+  document.getElementById('status').innerHTML = '<p>ログインしてください</p>';
+}
+```
+
+#### 3. 単一方向データフロー
+
+データの流れが**親から子へ一方向**になり、データの追跡が容易になりました。
+
+```jsx
+function App() {
+  const [user, setUser] = useState(null);
+
+  // データは親から子へ流れる
+  return (
+    <div>
+      <Header user={user} />
+      <Main user={user} />
+    </div>
+  );
+}
+```
+
+## 仮想DOM：Reactの革新的な仕組み
+
+Reactの最も革新的な概念の一つが**仮想DOM（Virtual DOM）**です。
+
+### DOM操作の問題
+
+従来のJavaScriptでは、DOMを直接操作していました。しかしDOM操作は**非常に重い処理**です。
+
+```javascript
+// DOMを直接操作（遅い）
+for (let i = 0; i < 1000; i++) {
+  const div = document.createElement('div');
+  div.textContent = `Item ${i}`;
+  document.body.appendChild(div); // 毎回再描画が走る
+}
+```
+
+### 仮想DOMの仕組み
+
+仮想DOMは、**実際のDOMの軽量なコピー**をJavaScriptのメモリ上に持ちます。
+
+1. **変更があったら仮想DOMを更新**（軽い）
+2. **変更前と変更後の仮想DOMを比較**（差分検出）
+3. **変更があった部分だけ実際のDOMに反映**（最小限の操作）
+
+```jsx
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  // countが変わると、Reactは：
+  // 1. 新しい仮想DOMツリーを作成
+  // 2. 前回の仮想DOMと比較
+  // 3. 変更があった<span>だけを実際のDOMで更新
+  return (
+    <div>
+      <p>カウント: <span>{count}</span></p>
+      <button onClick={() => setCount(count + 1)}>増やす</button>
+    </div>
+  );
+}
+```
+
+### 仮想DOMのメリット
+
+- **パフォーマンスの最適化**: 必要最小限のDOM操作だけを実行
+- **開発者体験の向上**: 開発者は最適化を気にせず、宣言的に書ける
+- **クロスプラットフォーム**: 同じ考え方でReact Native（モバイルアプリ）も実現
+
+## 状態管理：アプリケーションの心臓部
+
+もう一つの重要な概念が**状態管理（State Management）**です。
+
+### 状態（State）とは
+
+状態とは、**アプリケーションが保持する動的なデータ**のことです。
+
+例：
+- ログインしているユーザー情報
+- フォームの入力内容
+- モーダルの開閉状態
+- 取得したAPIのデータ
+
+### 従来の問題点
+
+jQuery時代は、状態が色々な場所に散らばっていました。
+
+```javascript
+// グローバル変数で状態を管理（良くない例）
+let currentUser = null;
+let cartItems = [];
+let isModalOpen = false;
+
+// 色々な場所から直接変更される
+function login(user) {
+  currentUser = user;
+  $('#username').text(user.name);
+  $('#cart-count').text(cartItems.length);
+}
+```
+
+問題：
+- **どこで状態が変更されるか分からない**
+- **状態の変更を追跡できない**
+- **バグの原因特定が困難**
+
+### Reactの状態管理
+
+Reactでは、状態は**コンポーネント内に閉じ込められます**。
+
+```jsx
+function ShoppingCart() {
+  // この状態はこのコンポーネント内でのみ管理される
+  const [items, setItems] = useState([]);
+
+  const addItem = (item) => {
+    // setItems関数を通してのみ変更できる
+    setItems([...items, item]);
+  };
+
+  return (
+    <div>
+      <p>カート: {items.length}個</p>
+      <button onClick={() => addItem('商品')}>追加</button>
+    </div>
+  );
+}
+```
+
+### より大規模な状態管理
+
+アプリケーションが大きくなると、複数のコンポーネント間で状態を共有する必要が出てきます。そこで登場したのが：
+
+- **Context API**: Reactに組み込まれている状態共有の仕組み
+- **Redux**: グローバルな状態管理ライブラリ（一時期デファクトスタンダード）
+- **Recoil / Zustand / Jotai**: より軽量でモダンな状態管理ライブラリ
+
+```jsx
+// Context APIの例
+const UserContext = createContext();
+
+function App() {
+  const [user, setUser] = useState(null);
+
+  // 子孫コンポーネント全てでuserにアクセス可能
+  return (
+    <UserContext.Provider value={user}>
+      <Header />
+      <Main />
+    </UserContext.Provider>
+  );
+}
+
+function Header() {
+  // どこからでも状態を取得できる
+  const user = useContext(UserContext);
+  return <div>ようこそ、{user?.name}さん</div>;
+}
+```
+
+重要なのは：
+- **状態の変更が追跡可能**
+- **データの流れが明確**
+- **テストやデバッグがしやすい**
+
+## まとめ
+
+Reactとモダンフロントエンドが解決したこと：
+
+1. **コンポーネント指向**: UIを再利用可能な部品として構築
+2. **仮想DOM**: 効率的なDOM操作でパフォーマンスを向上
+3. **宣言的UI**: 「どうあるべきか」を記述することで可読性向上
+4. **状態管理**: データの流れを明確にし、バグを減らす
+
+これらの概念は、Reactだけでなく、Vue.jsやSvelteなど他のモダンフロントエンドフレームワークにも共通しています。
+
+次回以降の勉強会では、実際にReactのコードを書きながら、これらの概念を体験していきましょう！
+
+## 参考リンク
+
+<ExternalOgp url="https://react.dev/"/>
+
+<ExternalOgp url="https://ja.react.dev/learn/thinking-in-react"/>

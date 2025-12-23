@@ -1,0 +1,25 @@
+name = "terastech-blog"
+compatibility_date = "2025-03-22"
+# main = "dist/index.js"
+compatibility_flags = ["nodejs_compat"]
+# no_bundle = true
+pages_build_output_dir = "./dist"
+
+# [vars]
+# MY_VAR = "my-variable"
+
+[[kv_namespaces]]
+binding = "terastech-blog-kv"
+id = "2627eca162bb45479d43fcb4cbf3e78c"
+
+[[r2_buckets]]
+binding = "terastech-blog-r2"
+bucket_name = "terastech-blog-r2"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "terastech-blog-db"
+database_id = "5c15dcca-98b6-429a-b4ab-864f7673cdc1"
+
+# [ai]
+# binding = "AI"

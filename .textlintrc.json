@@ -1,0 +1,35 @@
+{
+  "plugins": {
+    "@textlint/markdown": {
+      "extensions": [".mdx"]
+    }
+  },
+  "filters": {
+    "allowlist": {
+      "allow": [
+        "Androidアプリエンジニアからフルスタックエンジニアになった話 a.k.a"
+      ]
+    }
+  },
+  "rules": {
+    "preset-ja-spacing": true,
+    "preset-ja-technical-writing": {
+      "ja-no-successive-word": {
+        "allow": ["↓"]
+      },
+      "no-exclamation-question-mark": {
+        "allowFullWidthQuestion": true,
+        "allowFullWidthExclamation": true
+      },
+      "ja-no-mixed-period": {
+        "allowPeriodMarks": ["↓"]
+      },
+      "ja-no-weak-phrase": false,
+      "no-doubled-joshi": {
+        "strict": false,
+        "allow": ["で", "や"]
+      },
+      "sentence-length": false
+    }
+  }
+}

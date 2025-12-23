@@ -1,0 +1,92 @@
+---
+title: HonoxとCloudFlareでブログを作ってみた
+date: 2025-04-01T15:30:39.165Z
+update: 2025-04-01T15:30:39.165Z
+description: 久しぶりに新しいフレームワークに挑戦したかったので作ってみた
+iconUrl: /article-icons/hono.svg
+tags: [{tag: Hono, icon: /article-icons/hono.svg}]
+---
+
+## ブログを作ってみた
+
+初手から自分語りになるのですが、私はエンジニアとして日々研鑽を積んだり所属している会社の部活動の一環としてMineCraft内で脱出ゲームを作ったのをきっかけに「**マイクラ内という制限でどこまで面白いゲームが作れるのか**」という試みをしています。
+
+そんな日々の中で会社名義のメディアやQiita、Zennのような「完成した知識」を披露する場ではなく、**途中経過やより深掘りした内容**をざっくばらんに人目に触れる場所に残して将来の自分のために資産化したいと思いブログを作ってみることにしました。
+
+## 技術スタック
+
+WordPressでもWixでも何でも良かったのですが、せっかくエンジニア、それもWEB系をメインにやっているエンジニアをしているので普段はやらないインフラ設定やドメイン取得のような根幹部分の作業も込みでやってみようと思い自作をする事にしました。
+
+技術スタックとしてこだわったのは[HonoX](https://github.com/honojs/honox/)を使ってみた点です。HonoXはHonoとViteを組み合わせたメタフレームワークで、CloudFlareとの相性もありフルスタックなWEB開発の体験が非常に良いことで知られています。
+
+バックエンドJSとしてのHonoは結構仕事でも使っていたんですが、もっぱらRemixやAstroと組み合わせた利用が多かったのでHonoXはアルファリリース時に少し触った程度で知見がないため採用しました。
+
+これで自分の経歴上
+- React
+- Angular
+- Remix (ReactRouter)
+- Astro
+- HonoX (Hono)
+- JQuery
+- Svelte (SvelteKit)
+- Laravel
+- SpringBoot
+- Node.js
+
+の利用経験があるWEBエンジニアになれました。
+
+まぁSESとかでやる実務的な仕事はReact + (PHP | Java)ばかりですけど...
+
+あとはしょうもない話ですが、使ったことないので個人的興味でアフィリエイト広告をつけてみました。初めて触ったのですがこんな感じなんですね
+
+XServerはちょうどマイクラのサーバに利用していて、もちろん今後の記事のサンプルにも出てくるので、まぁ読んで使ってみたくなるような事があればお願いします。
+
+コーヒーのやつはそういうチップ文化的なものがかっこよかったので入れてみました。
+
+### プロジェクトの構成
+
+今回、実装の中身自体は先人の知恵をパク...フル活用させていただいたため、基本的には末尾にある参考記事類を参照していただければと思います。
+
+HonoXは本当にシンプルなのでディレクトリ構成と、SSRやらアイランドアーキやらの知見がある程度あればほとんど手持ちのスキルでさらさらとフルスタックできて気持ち良いです。
+
+個人的には「こんなに見えないスタイルに癒着して流行り終わったらどうすんねん...」って気持ちからtailwindcssアンチなのですが、便利さは間違いない故に現場で使う機会が多いため今回利用しています。先日出た[v4](https://tailwindcss.com/docs/responsive-design)も習熟しときたいし
+
+それ以外はまぁ[Bun](https://bun.sh)使ったり、そのBunを[Mise](https://mise.jdx.dev)で管理したり...
+
+会社で後輩のPCをOS問わず設定したりしてるのでVSCode周りやLinux周りの拡張は備忘録的にそのうちまとめたいところです。
+
+## MineCraft??
+
+このブログの記事の多くはおそらくマイクラ関連になります。
+
+というのもこんな感じでゲーム内ゲーム開発をある種の趣味としております。
+
+<div class="youtube">
+  <iframe src="https://www.youtube.com/embed/kqdVpPC1b_8?si=-IvaIlSrcVEAfncZ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen/>
+</div>
+
+要するにコマンドブロックやRS回路を駆使したシステムや、友人の協力で生まれた凝ったマップを作成しているわけです。
+
+上記の脱出ゲームの他にも中断中の企画や、これから着手する企画が多くあり、生まれたアイデアや作ったシステムを自己満足で置いていく予定です。
+
+## 締め
+
+HonoXの実装内容等についてあまり触れられず申し訳ないのですが、本当にストレスがなく実装できるのでHonoは本当におすすめの一つです。
+
+とはいえ開発者の方もおっしゃっている通り、物事には向き不向きがあるのでやはり方々一度触ってみるのは大事に思います。
+
+今既に三つほどマイクラのゲーム企画が進行しているほか、この時期なので研修等々で改めてプログラミングなどを勉強しているので細々書いていければと思います。
+
+あまり実のある話ではなく申し訳ないのですが、お読みいただきありがとうございました。
+
+### 参考にさせていただいた記事
+
+<ExternalOgp url="https://suna.dev/articles/honox-blog"/>
+
+<ExternalOgp url="https://zenn.dev/yusukebe/articles/724940fa3f2450"/>
+
+<ExternalOgp url="https://blog.mooriii.com/entry/honox-ssg-blog"/>
+
+<ExternalOgp url="https://yossy.dev/posts/honox-blog-created"/>
+
+<ExternalOgp url="https://blog.berlysia.net/entry/2024-02-29-honox-og-image"/>
