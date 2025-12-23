@@ -1,0 +1,646 @@
+---
+title: React勉強会資料 Hooks基礎編
+date: 2025-12-23T09:19:52.870Z
+update: 2025-12-23T09:19:52.870Z
+description: React Hooksの基本をマスター - useState、useEffect、useContextなど必須のHooksを学ぶ
+iconUrl: /article-icons/react.svg
+tags: [{tag: React, icon: /article-icons/react.svg}]
+---
+
+## はじめに
+
+これまでの勉強会で、Reactの基本とライフサイクルについて学んできました。今回は、Reactの心臓部とも言える**Hooks**の基礎を学んでいきます。
+
+Hooksを使いこなすことで：
+
+- コンポーネントの状態を管理できる
+- 副作用を適切に扱える
+- コンポーネント間で値を共有できる
+- コードの再利用性が高まる
+
+この記事では、実務で必ず使う基本的なHooksに焦点を当てます。パフォーマンス最適化や高度な機能については、次回の「Hooks応用編」で学びます。
+
+## Hooksとは
+
+Hooksは、**関数コンポーネントでReactの機能を「フック」するための関数**です。
+
+React 16.8以前は、状態やライフサイクルを使うにはクラスコンポーネントを使う必要がありました。
+
+```jsx
+// 古い書き方（クラスコンポーネント）
+class Counter extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { count: 0 };
+  }
+
+  render() {
+    return (
+      <div>
+        <p>{this.state.count}</p>
+        <button onClick={() => this.setState({ count: this.state.count + 1 })}>
+          増やす
+        </button>
+      </div>
+    );
+  }
+}
+```
+
+Hooksの登場により、関数コンポーネントでも状態管理ができるようになりました。
+
+```jsx
+// 新しい書き方（関数コンポーネント + Hooks）
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <p>{count}</p>
+      <button onClick={() => setCount(count + 1)}>増やす</button>
+    </div>
+  );
+}
+```
+
+## State Hooks：状態を管理する
+
+### useState - 基本の状態管理
+
+最も基本的なHook。コンポーネントに状態を追加します。
+
+```jsx
+function Counter() {
+  // [状態変数, 更新関数] = useState(初期値)
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <p>カウント: {count}</p>
+      <button onClick={() => setCount(count + 1)}>+1</button>
+      <button onClick={() => setCount(count - 1)}>-1</button>
+      <button onClick={() => setCount(0)}>リセット</button>
+    </div>
+  );
+}
+```
+
+**複数の状態を管理**
+
+```jsx
+function UserForm() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [age, setAge] = useState(0);
+
+  return (
+    <form>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="名前"
+      />
+      <input
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="メール"
+      />
+      <input
+        type="number"
+        value={age}
+        onChange={(e) => setAge(Number(e.target.value))}
+        placeholder="年齢"
+      />
+    </form>
+  );
+}
+```
+
+**オブジェクトの状態管理**
+
+```jsx
+function UserForm() {
+  const [user, setUser] = useState({
+    name: '',
+    email: '',
+    age: 0
+  });
+
+  const handleChange = (field, value) => {
+    setUser({
+      ...user,        // 既存の値をコピー
+      [field]: value  // 特定のフィールドだけ更新
+    });
+  };
+
+  return (
+    <form>
+      <input
+        value={user.name}
+        onChange={(e) => handleChange('name', e.target.value)}
+        placeholder="名前"
+      />
+      <input
+        value={user.email}
+        onChange={(e) => handleChange('email', e.target.value)}
+        placeholder="メール"
+      />
+    </form>
+  );
+}
+```
+
+**関数型の更新**
+
+前の状態に基づいて更新する場合は、関数を渡します。
+
+```jsx
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  const increment = () => {
+    // ❌ 非推奨: 複数回呼んでも1回分しか増えない
+    setCount(count + 1);
+    setCount(count + 1);
+    setCount(count + 1);
+    // → countは1になる
+  };
+
+  const incrementCorrect = () => {
+    // ✅ 推奨: 前の値を元に更新
+    setCount(prev => prev + 1);
+    setCount(prev => prev + 1);
+    setCount(prev => prev + 1);
+    // → countは3になる
+  };
+
+  return (
+    <div>
+      <p>{count}</p>
+      <button onClick={incrementCorrect}>+3</button>
+    </div>
+  );
+}
+```
+
+### useReducer - 複雑な状態管理
+
+複数の状態が関連している場合や、複雑な更新ロジックがある場合に使います。
+
+```jsx
+// reducer関数: 状態の更新方法を定義
+function reducer(state, action) {
+  switch (action.type) {
+    case 'increment':
+      return { count: state.count + 1 };
+    case 'decrement':
+      return { count: state.count - 1 };
+    case 'reset':
+      return { count: 0 };
+    default:
+      throw new Error('Unknown action');
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(reducer, { count: 0 });
+
+  return (
+    <div>
+      <p>カウント: {state.count}</p>
+      <button onClick={() => dispatch({ type: 'increment' })}>+1</button>
+      <button onClick={() => dispatch({ type: 'decrement' })}>-1</button>
+      <button onClick={() => dispatch({ type: 'reset' })}>リセット</button>
+    </div>
+  );
+}
+```
+
+**useStateとuseReducerの使い分け**
+
+- **useState**: 単純な状態（数値、文字列、真偽値）
+- **useReducer**: 複雑な状態（オブジェクト、配列）や、複数の更新パターンがある場合
+
+```jsx
+// useReducerが適している例: TODOリスト
+function todoReducer(state, action) {
+  switch (action.type) {
+    case 'add':
+      return [...state, { id: Date.now(), text: action.text, done: false }];
+    case 'toggle':
+      return state.map(todo =>
+        todo.id === action.id ? { ...todo, done: !todo.done } : todo
+      );
+    case 'delete':
+      return state.filter(todo => todo.id !== action.id);
+    default:
+      return state;
+  }
+}
+
+function TodoList() {
+  const [todos, dispatch] = useReducer(todoReducer, []);
+  const [input, setInput] = useState('');
+
+  const handleAdd = () => {
+    dispatch({ type: 'add', text: input });
+    setInput('');
+  };
+
+  return (
+    <div>
+      <input value={input} onChange={(e) => setInput(e.target.value)} />
+      <button onClick={handleAdd}>追加</button>
+      <ul>
+        {todos.map(todo => (
+          <li key={todo.id}>
+            <input
+              type="checkbox"
+              checked={todo.done}
+              onChange={() => dispatch({ type: 'toggle', id: todo.id })}
+            />
+            <span style={{ textDecoration: todo.done ? 'line-through' : 'none' }}>
+              {todo.text}
+            </span>
+            <button onClick={() => dispatch({ type: 'delete', id: todo.id })}>
+              削除
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## Context Hooks：値を共有する
+
+### useContext - グローバルな状態共有
+
+Props drilling（バケツリレー）を避けるために使います。
+
+```jsx
+// 1. Contextを作成
+const ThemeContext = createContext('light');
+
+// 2. Providerで値を提供
+function App() {
+  const [theme, setTheme] = useState('light');
+
+  return (
+    <ThemeContext.Provider value={theme}>
+      <Header />
+      <Main />
+      <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+        テーマ切替
+      </button>
+    </ThemeContext.Provider>
+  );
+}
+
+// 3. 子孫コンポーネントで値を使用
+function Header() {
+  const theme = useContext(ThemeContext);
+
+  return (
+    <header style={{
+      background: theme === 'light' ? '#fff' : '#333',
+      color: theme === 'light' ? '#000' : '#fff'
+    }}>
+      ヘッダー
+    </header>
+  );
+}
+```
+
+**複数の値を提供する**
+
+```jsx
+const UserContext = createContext(null);
+
+function App() {
+  const [user, setUser] = useState(null);
+
+  const login = (userData) => setUser(userData);
+  const logout = () => setUser(null);
+
+  return (
+    <UserContext.Provider value={{ user, login, logout }}>
+      <Header />
+      <Main />
+    </UserContext.Provider>
+  );
+}
+
+function Header() {
+  const { user, logout } = useContext(UserContext);
+
+  if (!user) return <div>ログインしてください</div>;
+
+  return (
+    <div>
+      <span>ようこそ、{user.name}さん</span>
+      <button onClick={logout}>ログアウト</button>
+    </div>
+  );
+}
+```
+
+## Ref Hooks：値を保持する
+
+### useRef - DOM参照と値の保持
+
+レンダリングに影響しない値を保持します。
+
+**DOM要素への参照**
+
+```jsx
+function TextInput() {
+  const inputRef = useRef(null);
+
+  const focusInput = () => {
+    inputRef.current.focus();
+  };
+
+  return (
+    <div>
+      <input ref={inputRef} type="text" />
+      <button onClick={focusInput}>フォーカス</button>
+    </div>
+  );
+}
+```
+
+**前回の値を記憶**
+
+```jsx
+function Counter() {
+  const [count, setCount] = useState(0);
+  const prevCountRef = useRef();
+
+  useEffect(() => {
+    prevCountRef.current = count;
+  }, [count]);
+
+  const prevCount = prevCountRef.current;
+
+  return (
+    <div>
+      <p>現在: {count}</p>
+      <p>前回: {prevCount}</p>
+      <button onClick={() => setCount(count + 1)}>増やす</button>
+    </div>
+  );
+}
+```
+
+**タイマーIDの保存**
+
+```jsx
+function Stopwatch() {
+  const [time, setTime] = useState(0);
+  const intervalRef = useRef(null);
+
+  const start = () => {
+    if (intervalRef.current) return; // 既に動いていたら何もしない
+
+    intervalRef.current = setInterval(() => {
+      setTime(t => t + 1);
+    }, 1000);
+  };
+
+  const stop = () => {
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+  };
+
+  return (
+    <div>
+      <p>経過時間: {time}秒</p>
+      <button onClick={start}>開始</button>
+      <button onClick={stop}>停止</button>
+    </div>
+  );
+}
+```
+
+## Effect Hooks：副作用を扱う
+
+### useEffect - 外部システムとの連携
+
+ライフサイクル編で詳しく学びましたが、ここでも復習します。
+
+**データ取得**
+
+```jsx
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/users/${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        setUser(data);
+        setLoading(false);
+      });
+  }, [userId]); // userIdが変わったら再取得
+
+  if (loading) return <div>Loading...</div>;
+  return <div>{user?.name}</div>;
+}
+```
+
+### useLayoutEffect - 同期的な副作用
+
+`useEffect`の前、ブラウザが画面を描画する前に実行されます。レイアウト計測に使います。
+
+```jsx
+function Tooltip() {
+  const ref = useRef(null);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  useLayoutEffect(() => {
+    // DOMの位置を取得してツールチップの位置を計算
+    const rect = ref.current.getBoundingClientRect();
+    setPosition({
+      x: rect.left,
+      y: rect.top - 40
+    });
+  }, []);
+
+  return (
+    <>
+      <button ref={ref}>ホバー</button>
+      <div style={{ position: 'absolute', left: position.x, top: position.y }}>
+        ツールチップ
+      </div>
+    </>
+  );
+}
+```
+
+**useEffectとuseLayoutEffectの違い**
+
+- `useEffect`: 非同期、画面描画後に実行（通常はこちらを使う）
+- `useLayoutEffect`: 同期的、画面描画前に実行（レイアウト測定、ちらつき防止）
+
+**注意**: `useLayoutEffect`は特殊なケースでのみ使います。ほとんどの場合、`useEffect`で十分です。
+
+## Hooksのルール
+
+Hooksを使う際の重要なルール：
+
+### 1. トップレベルでのみ呼び出す
+
+```jsx
+// ❌ 条件分岐の中でHookを呼ぶ
+function Component({ condition }) {
+  if (condition) {
+    const [value, setValue] = useState(0); // NG!
+  }
+}
+
+// ✅ 常にトップレベルで呼ぶ
+function Component({ condition }) {
+  const [value, setValue] = useState(0); // OK
+
+  if (condition) {
+    // 値を使うのはOK
+    setValue(10);
+  }
+}
+```
+
+### 2. React関数内でのみ呼び出す
+
+```jsx
+// ❌ 通常のJavaScript関数内で呼ぶ
+function regularFunction() {
+  const [value, setValue] = useState(0); // NG!
+}
+
+// ✅ Reactコンポーネント内で呼ぶ
+function MyComponent() {
+  const [value, setValue] = useState(0); // OK
+}
+
+// ✅ カスタムHook内で呼ぶ
+function useCustomHook() {
+  const [value, setValue] = useState(0); // OK
+}
+```
+
+## カスタムHooks：ロジックの再利用
+
+共通のロジックをカスタムHookとして抽出できます。
+
+### useLocalStorage - ローカルストレージと同期
+
+```jsx
+function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue];
+}
+
+// 使用例
+function ThemeSelector() {
+  const [theme, setTheme] = useLocalStorage('theme', 'light');
+
+  return (
+    <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+      現在: {theme}
+    </button>
+  );
+}
+```
+
+### useDebounce - 値の更新を遅延
+
+```jsx
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// 使用例
+function SearchBox() {
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 500);
+
+  useEffect(() => {
+    if (debouncedQuery) {
+      // 500ms後に検索実行
+      searchAPI(debouncedQuery);
+    }
+  }, [debouncedQuery]);
+
+  return (
+    <input
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="検索..."
+    />
+  );
+}
+```
+
+## まとめ
+
+React Hooks基礎編で学んだこと：
+
+### State Hooks - 状態管理
+- **useState**: コンポーネントの状態を管理する基本Hook
+- **useReducer**: 複雑な状態更新ロジックを整理する
+
+### Context Hooks - 値の共有
+- **useContext**: Props drillingを避けてグローバルな値を共有
+
+### Ref Hooks - 値の保持
+- **useRef**: レンダリングに影響しない値やDOM要素への参照を保持
+
+### Effect Hooks - 副作用の処理
+- **useEffect**: データ取得、イベントリスナー登録などの副作用を管理
+- **useLayoutEffect**: DOM測定など、描画前に実行する特殊な副作用
+
+### Hooksのルール（重要）
+1. **トップレベルでのみ呼び出す** - 条件分岐の中で呼ばない
+2. **React関数内でのみ呼び出す** - 通常のJavaScript関数では使えない
+
+### カスタムHooks
+- 共通のロジックを再利用可能な形に抽出できる
+- `useLocalStorage`, `useDebounce`などの実用的な例
+
+これらの基本Hooksを使いこなせば、ほとんどのReactアプリケーションを構築できます。
+
+**推奨される学習順序**:
+1. まず「TypeScript編」で型安全な開発を学ぶ
+2. 次に「実践編」で実際にTODOアプリを作ってみる
+3. 余裕があれば「Hooks応用編」でパフォーマンス最適化を学ぶ
+4. 経験を積んだ後に「アーキテクチャ編」で設計原則を学ぶ
+
+Hooks基礎編の内容をマスターしたら、実際に手を動かして学ぶことが最も重要です！
+
+## 参考リンク
+
+<ExternalOgp url="https://react.dev/reference/react/hooks"/>
+
+<ExternalOgp url="https://ja.react.dev/learn"/>

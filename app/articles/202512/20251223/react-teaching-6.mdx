@@ -1,0 +1,782 @@
+---
+title: React勉強会資料 Hooks応用編
+date: 2025-12-23T10:00:00.000Z
+update: 2025-12-23T10:00:00.000Z
+description: パフォーマンス最適化とReact 19の新機能 - useMemo、useCallback、useTransition、最新Hooksを学ぶ
+iconUrl: /article-icons/react.svg
+tags: [{tag: React, icon: /article-icons/react.svg}]
+---
+
+## はじめに
+
+Hooks基礎編では、useState、useEffect、useContextなど、実務で必須の基本的なHooksを学びました。今回は、より高度な**パフォーマンス最適化**と**React 19の最新機能**について学んでいきます。
+
+> **前提知識**
+>
+> この記事は以下の内容を理解していることを前提としています：
+> - Hooks基礎編の内容（useState、useEffect、useContext、useRef）
+> - Reactのレンダリングの仕組み
+> - 依存配列の概念
+>
+> まだHooks基礎編を読んでいない方は、先にそちらを学習することをお勧めします。
+
+応用編で学ぶこと：
+
+- **パフォーマンス最適化**: 不要な再レンダリングを防ぐ
+- **React 19の新機能**: use()、useActionState、useOptimistic
+- **UIの応答性**: useTransition、useDeferredValue
+- **実践的なパターン**: いつ、どう使うか
+
+## パフォーマンス最適化の必要性
+
+まず、なぜパフォーマンス最適化が必要なのか理解しましょう。
+
+### 不要な再レンダリングの問題
+
+```jsx
+function ParentComponent() {
+  const [count, setCount] = useState(0);
+  const [text, setText] = useState('');
+
+  return (
+    <div>
+      <input value={text} onChange={(e) => setText(e.target.value)} />
+      <button onClick={() => setCount(count + 1)}>カウント: {count}</button>
+
+      {/* textが変わるたびに、ExpensiveComponentも再レンダリングされる */}
+      <ExpensiveComponent count={count} />
+    </div>
+  );
+}
+
+function ExpensiveComponent({ count }) {
+  console.log('ExpensiveComponentがレンダリングされました');
+
+  // 重い計算（例）
+  const result = computeExpensiveValue(count);
+
+  return <div>結果: {result}</div>;
+}
+```
+
+**問題点**:
+- `text`が変わると親コンポーネントが再レンダリング
+- 親が再レンダリングされると、子の`ExpensiveComponent`も再レンダリング
+- `count`は変わっていないのに、毎回重い計算が実行される
+
+## useMemo - 計算結果をキャッシュする
+
+重い計算結果をメモ化（キャッシュ）して、不要な再計算を防ぎます。
+
+### 基本的な使い方
+
+```jsx
+import { useMemo } from 'react';
+
+function ExpensiveComponent({ count }) {
+  // countが変わった時だけ再計算
+  const result = useMemo(() => {
+    console.log('重い計算を実行中...');
+    return computeExpensiveValue(count);
+  }, [count]);
+
+  return <div>結果: {result}</div>;
+}
+```
+
+### 実践例：フィルタリング
+
+```jsx
+function ProductList({ products, category, searchQuery }) {
+  // productsかcategoryが変わった時だけフィルタリングを実行
+  const filteredProducts = useMemo(() => {
+    console.log('フィルタリング実行');
+    return products
+      .filter(p => p.category === category)
+      .filter(p => p.name.includes(searchQuery));
+  }, [products, category, searchQuery]);
+
+  return (
+    <ul>
+      {filteredProducts.map(p => (
+        <li key={p.id}>{p.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### useMemoを使うべき場面
+
+✅ **使うべき場合**:
+- 計算コストが高い処理（ソート、フィルタリング、複雑な変換）
+- 大きな配列やオブジェクトの処理
+- 子コンポーネントに渡すオブジェクトや配列
+
+❌ **使わなくて良い場合**:
+- 単純な計算（足し算、文字列結合など）
+- 初回レンダリング時のみの計算
+- 計算コストより、useMemoのオーバーヘッドの方が高い場合
+
+```jsx
+// ❌ 過剰な最適化
+const sum = useMemo(() => a + b, [a, b]); // 単純すぎる
+
+// ✅ 適切な最適化
+const sortedList = useMemo(() => {
+  return items.sort((a, b) => a.price - b.price);
+}, [items]);
+```
+
+## useCallback - 関数をキャッシュする
+
+関数定義をメモ化して、子コンポーネントの不要な再レンダリングを防ぎます。
+
+### 問題の理解
+
+```jsx
+function TodoList() {
+  const [todos, setTodos] = useState([]);
+
+  // 毎回新しい関数が作られる
+  const handleToggle = (id) => {
+    setTodos(todos.map(todo =>
+      todo.id === id ? { ...todo, done: !todo.done } : todo
+    ));
+  };
+
+  return (
+    <ul>
+      {todos.map(todo => (
+        // handleToggleが毎回新しい関数なので、TodoItemが毎回再レンダリング
+        <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} />
+      ))}
+    </ul>
+  );
+}
+
+// React.memoで最適化されたコンポーネント
+const TodoItem = React.memo(({ todo, onToggle }) => {
+  console.log('レンダリング:', todo.text);
+  return (
+    <li>
+      <input
+        type="checkbox"
+        checked={todo.done}
+        onChange={() => onToggle(todo.id)}
+      />
+      {todo.text}
+    </li>
+  );
+});
+```
+
+### useCallbackで解決
+
+```jsx
+import { useCallback } from 'react';
+
+function TodoList() {
+  const [todos, setTodos] = useState([]);
+
+  // todosが変わった時だけ新しい関数を作る
+  const handleToggle = useCallback((id) => {
+    setTodos(todos.map(todo =>
+      todo.id === id ? { ...todo, done: !todo.done } : todo
+    ));
+  }, [todos]);
+
+  return (
+    <ul>
+      {todos.map(todo => (
+        <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} />
+      ))}
+    </ul>
+  );
+}
+```
+
+### さらに最適化：関数型の更新
+
+```jsx
+function TodoList() {
+  const [todos, setTodos] = useState([]);
+
+  // 依存配列が空 = 一度だけ関数を作成
+  const handleToggle = useCallback((id) => {
+    setTodos(prevTodos => prevTodos.map(todo =>
+      todo.id === id ? { ...todo, done: !todo.done } : todo
+    ));
+  }, []); // todosへの依存を削除
+
+  return (
+    <ul>
+      {todos.map(todo => (
+        <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} />
+      ))}
+    </ul>
+  );
+}
+```
+
+### useCallbackを使うべき場面
+
+✅ **使うべき場合**:
+- React.memoで最適化された子コンポーネントに渡す関数
+- useEffectやuseMemoの依存配列に含まれる関数
+- カスタムHooksから返す関数
+
+❌ **使わなくて良い場合**:
+- イベントハンドラ（最適化されていない子に渡す場合）
+- コンポーネント内でのみ使う関数
+
+## React.memo - コンポーネントのメモ化
+
+useCallbackやuseMemoと組み合わせて使います。
+
+```jsx
+// propsが変わらなければ再レンダリングをスキップ
+const TodoItem = React.memo(({ todo, onToggle, onDelete }) => {
+  return (
+    <li>
+      <input
+        type="checkbox"
+        checked={todo.done}
+        onChange={() => onToggle(todo.id)}
+      />
+      <span>{todo.text}</span>
+      <button onClick={() => onDelete(todo.id)}>削除</button>
+    </li>
+  );
+});
+
+// カスタム比較関数を使う場合
+const TodoItem = React.memo(
+  ({ todo, onToggle }) => {
+    return (
+      <li>
+        <input
+          type="checkbox"
+          checked={todo.done}
+          onChange={() => onToggle(todo.id)}
+        />
+        {todo.text}
+      </li>
+    );
+  },
+  (prevProps, nextProps) => {
+    // trueを返すと再レンダリングをスキップ
+    return prevProps.todo.id === nextProps.todo.id &&
+           prevProps.todo.done === nextProps.todo.done &&
+           prevProps.todo.text === nextProps.todo.text;
+  }
+);
+```
+
+## useTransition - 優先度の低い更新
+
+UIをブロックせずに状態を更新します。入力欄などの高優先度UIの応答性を保ちます。
+
+### 基本的な使い方
+
+```jsx
+import { useState, useTransition } from 'react';
+
+function SearchResults() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [isPending, startTransition] = useTransition();
+
+  const handleChange = (e) => {
+    const value = e.target.value;
+
+    // 高優先度: 入力値をすぐに反映
+    setQuery(value);
+
+    // 低優先度: 検索結果の更新は遅延可能
+    startTransition(() => {
+      const filtered = searchProducts(value);
+      setResults(filtered);
+    });
+  };
+
+  return (
+    <div>
+      <input
+        value={query}
+        onChange={handleChange}
+        placeholder="検索..."
+      />
+
+      {isPending && <div>検索中...</div>}
+
+      <ul>
+        {results.map(r => (
+          <li key={r.id}>{r.name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### 実践例：タブ切り替え
+
+```jsx
+function TabContainer() {
+  const [tab, setTab] = useState('home');
+  const [isPending, startTransition] = useTransition();
+
+  const handleTabClick = (newTab) => {
+    startTransition(() => {
+      setTab(newTab);
+    });
+  };
+
+  return (
+    <div>
+      <div>
+        <button onClick={() => handleTabClick('home')}>ホーム</button>
+        <button onClick={() => handleTabClick('profile')}>プロフィール</button>
+        <button onClick={() => handleTabClick('settings')}>設定</button>
+      </div>
+
+      {isPending && <div>読み込み中...</div>}
+
+      <div>
+        {tab === 'home' && <HomeTab />}
+        {tab === 'profile' && <ProfileTab />}
+        {tab === 'settings' && <SettingsTab />}
+      </div>
+    </div>
+  );
+}
+```
+
+## useDeferredValue - 値の更新を遅延
+
+重いコンポーネントの更新を遅らせて、UIの応答性を保ちます。
+
+### 基本的な使い方
+
+```jsx
+import { useState, useDeferredValue } from 'react';
+
+function App() {
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+
+  return (
+    <div>
+      {/* 入力欄は即座に反映される */}
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="検索..."
+      />
+
+      {/* 検索結果の更新は遅延される */}
+      <SearchResults query={deferredQuery} />
+    </div>
+  );
+}
+
+function SearchResults({ query }) {
+  // 重い処理
+  const results = useMemo(() => {
+    console.log('検索実行:', query);
+    return expensiveSearch(query);
+  }, [query]);
+
+  return (
+    <ul>
+      {results.map(item => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### useTransition vs useDeferredValue
+
+| 特徴 | useTransition | useDeferredValue |
+|------|--------------|------------------|
+| 用途 | 状態更新を低優先度にする | 値の使用を遅延する |
+| 使い所 | 状態を更新する側 | 値を受け取る側 |
+| isPending | あり | なし |
+| 例 | タブ切り替え、フォーム送信 | 検索結果表示、フィルタリング |
+
+```jsx
+// useTransition: 更新する側で使う
+function Parent() {
+  const [tab, setTab] = useState('home');
+  const [isPending, startTransition] = useTransition();
+
+  const selectTab = (nextTab) => {
+    startTransition(() => {
+      setTab(nextTab);
+    });
+  };
+
+  return <TabPanel tab={tab} />;
+}
+
+// useDeferredValue: 受け取る側で使う
+function Child({ value }) {
+  const deferredValue = useDeferredValue(value);
+
+  return <ExpensiveComponent value={deferredValue} />;
+}
+```
+
+## React 19の新しいHooks
+
+### use() - PromiseとContextを読み取る
+
+React 19で追加された革新的なHook。**条件分岐の後でも使える**のが大きな特徴です。
+
+#### Promiseを読み取る
+
+```jsx
+import { use, Suspense } from 'react';
+
+// Promiseを返す関数
+async function fetchComments(postId) {
+  const response = await fetch(`/api/posts/${postId}/comments`);
+  return response.json();
+}
+
+function Comments({ commentsPromise }) {
+  // Promiseが解決されるまでSuspend
+  const comments = use(commentsPromise);
+
+  return (
+    <ul>
+      {comments.map(comment => (
+        <li key={comment.id}>
+          <strong>{comment.author}</strong>: {comment.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function BlogPost({ postId }) {
+  // レンダリング中にPromiseを作成
+  const commentsPromise = fetchComments(postId);
+
+  return (
+    <article>
+      <h1>記事タイトル</h1>
+      <p>記事本文...</p>
+
+      <Suspense fallback={<div>コメント読み込み中...</div>}>
+        <Comments commentsPromise={commentsPromise} />
+      </Suspense>
+    </article>
+  );
+}
+```
+
+#### 条件付きでContextを読み取る
+
+```jsx
+import { createContext, use } from 'react';
+
+const ThemeContext = createContext(null);
+
+function Heading({ children }) {
+  // 従来のuseContextはここでは使えなかった
+  if (children == null) {
+    return null;
+  }
+
+  // use()なら条件分岐の後でも呼べる
+  const theme = use(ThemeContext);
+
+  return (
+    <h1 style={{ color: theme.color }}>
+      {children}
+    </h1>
+  );
+}
+```
+
+### useActionState - フォーム送信の管理
+
+フォームのアクションを管理し、保留状態とエラーを自動的に処理します。
+
+```jsx
+import { useActionState } from 'react';
+
+function UpdateNameForm() {
+  const [error, submitAction, isPending] = useActionState(
+    // アクション関数
+    async (previousState, formData) => {
+      const name = formData.get('name');
+
+      // バリデーション
+      if (!name) {
+        return '名前を入力してください';
+      }
+
+      if (name.length < 2) {
+        return '名前は2文字以上で入力してください';
+      }
+
+      // API呼び出し
+      try {
+        await updateUserName(name);
+        return null; // 成功（エラーなし）
+      } catch (err) {
+        return 'サーバーエラーが発生しました';
+      }
+    },
+    null // 初期エラー状態
+  );
+
+  return (
+    <form action={submitAction}>
+      <div>
+        <label htmlFor="name">名前:</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          required
+        />
+      </div>
+
+      {error && (
+        <div style={{ color: 'red' }}>
+          {error}
+        </div>
+      )}
+
+      <button type="submit" disabled={isPending}>
+        {isPending ? '送信中...' : '更新する'}
+      </button>
+    </form>
+  );
+}
+```
+
+### useOptimistic - 楽観的更新
+
+非同期処理中に、UIを先に更新して即座にフィードバックを与えます。
+
+```jsx
+import { useState, useOptimistic } from 'react';
+
+function LikeButton({ postId, initialLikes }) {
+  const [likes, setLikes] = useState(initialLikes);
+  const [optimisticLikes, setOptimisticLikes] = useOptimistic(likes);
+
+  const handleLike = async () => {
+    // UIを即座に更新（楽観的更新）
+    setOptimisticLikes(optimisticLikes + 1);
+
+    try {
+      // APIリクエスト
+      const newLikes = await addLike(postId);
+
+      // サーバーからの実際の値で更新
+      setLikes(newLikes);
+    } catch (err) {
+      // エラー時は元の値に戻る（自動的に）
+      console.error('いいねに失敗しました');
+      // エラーメッセージを表示するなどの処理
+    }
+  };
+
+  return (
+    <button onClick={handleLike}>
+      ❤️ {optimisticLikes}
+    </button>
+  );
+}
+```
+
+### 実践例：TODOリストの楽観的更新
+
+```jsx
+function TodoList() {
+  const [todos, setTodos] = useState([]);
+  const [optimisticTodos, addOptimisticTodo] = useOptimistic(
+    todos,
+    (state, newTodo) => [...state, newTodo]
+  );
+
+  const handleAddTodo = async (text) => {
+    const tempTodo = {
+      id: `temp-${Date.now()}`,
+      text,
+      done: false,
+      pending: true
+    };
+
+    // 即座にUIに反映
+    addOptimisticTodo(tempTodo);
+
+    try {
+      // サーバーに保存
+      const savedTodo = await createTodo(text);
+
+      // サーバーからの実際のデータで更新
+      setTodos([...todos, savedTodo]);
+    } catch (err) {
+      console.error('TODO作成に失敗しました');
+    }
+  };
+
+  return (
+    <div>
+      <TodoForm onSubmit={handleAddTodo} />
+      <ul>
+        {optimisticTodos.map(todo => (
+          <li key={todo.id} style={{ opacity: todo.pending ? 0.5 : 1 }}>
+            {todo.text}
+            {todo.pending && <span> (送信中...)</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### useFormStatus - フォーム状態の読み取り
+
+親フォームの送信状態を読み取ります。デザインシステムのコンポーネントに便利です。
+
+```jsx
+import { useFormStatus } from 'react-dom';
+
+// 再利用可能なボタンコンポーネント
+function SubmitButton({ children, ...props }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button type="submit" disabled={pending} {...props}>
+      {pending ? '送信中...' : children}
+    </button>
+  );
+}
+
+// 使用例
+function ContactForm() {
+  const handleSubmit = async (formData) => {
+    const email = formData.get('email');
+    const message = formData.get('message');
+
+    await sendMessage({ email, message });
+  };
+
+  return (
+    <form action={handleSubmit}>
+      <div>
+        <label htmlFor="email">メール:</label>
+        <input type="email" id="email" name="email" required />
+      </div>
+
+      <div>
+        <label htmlFor="message">メッセージ:</label>
+        <textarea id="message" name="message" required />
+      </div>
+
+      {/* SubmitButtonが自動的にフォームの状態を検知 */}
+      <SubmitButton>送信</SubmitButton>
+    </form>
+  );
+}
+```
+
+## パフォーマンス最適化のベストプラクティス
+
+### 1. 計測してから最適化する
+
+```jsx
+import { Profiler } from 'react';
+
+function App() {
+  const onRender = (id, phase, actualDuration) => {
+    console.log(`${id} (${phase}): ${actualDuration}ms`);
+  };
+
+  return (
+    <Profiler id="App" onRender={onRender}>
+      <YourComponent />
+    </Profiler>
+  );
+}
+```
+
+### 2. 早すぎる最適化を避ける
+
+```jsx
+// ❌ 過剰な最適化
+function Component({ a, b }) {
+  const sum = useMemo(() => a + b, [a, b]); // 不要
+  const handleClick = useCallback(() => {
+    console.log('clicked');
+  }, []); // 子に渡さないなら不要
+
+  return <div onClick={handleClick}>{sum}</div>;
+}
+
+// ✅ 必要な時だけ最適化
+function Component({ a, b }) {
+  const sum = a + b; // 単純な計算
+  const handleClick = () => {
+    console.log('clicked');
+  };
+
+  return <div onClick={handleClick}>{sum}</div>;
+}
+```
+
+### 3. React DevToolsのProfilerを使う
+
+ブラウザのReact DevTools拡張機能のProfilerタブで：
+- どのコンポーネントが再レンダリングされているか
+- レンダリングにかかった時間
+- なぜ再レンダリングされたか
+
+を確認できます。
+
+## まとめ
+
+React Hooks応用編で学んだこと：
+
+### パフォーマンス最適化
+- **useMemo**: 重い計算結果をキャッシュ
+- **useCallback**: 関数定義をキャッシュ
+- **React.memo**: コンポーネント自体をメモ化
+
+### UIの応答性
+- **useTransition**: 状態更新を低優先度にする
+- **useDeferredValue**: 値の使用を遅延する
+
+### React 19の新機能
+- **use()**: PromiseとContextを柔軟に読み取る
+- **useActionState**: フォームアクションを管理
+- **useOptimistic**: 楽観的更新でUXを向上
+- **useFormStatus**: フォーム状態を読み取る
+
+### 重要な原則
+1. **計測してから最適化**: パフォーマンス問題を確認してから対処
+2. **適材適所**: 全てを最適化する必要はない
+3. **ユーザー体験優先**: 最適化はUX向上のため
+
+これらの応用的なHooksを使いこなすことで、快適でパフォーマンスの高いReactアプリケーションを構築できます！
+
+**次のステップ**: 次の「実践編」では、これまで学んだ知識を使って実際にTODOアプリを構築します。手を動かして学びましょう！
+
+## 参考リンク
+
+<ExternalOgp url="https://react.dev/reference/react/hooks"/>
+
+<ExternalOgp url="https://react.dev/blog/2024/12/05/react-19"/>
+
+<ExternalOgp url="https://ja.react.dev/learn/render-and-commit"/>
