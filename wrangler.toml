@@ -1,9 +1,11 @@
 name = "terastech-blog"
 compatibility_date = "2025-03-22"
-# main = "dist/index.js"
+main = "dist/index.js"
 compatibility_flags = ["nodejs_compat"]
-# no_bundle = true
-pages_build_output_dir = "./dist"
+# pages_build_output_dir = "./dist"
+
+[site]
+bucket = "./dist"
 
 # [vars]
 # MY_VAR = "my-variable"
