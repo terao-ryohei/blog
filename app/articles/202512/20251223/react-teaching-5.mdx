@@ -1,7 +1,7 @@
 ---
 title: React勉強会資料 TypeScript型定義編
 date: 2025-12-23T09:31:20.318Z
-update: 2025-12-23T09:31:20.318Z
+update: 2026-02-19
 description: TypeScriptで型安全なReactアプリケーションを構築する
 iconUrl: /article-icons/react.svg
 tags: [{tag: React, icon: /article-icons/react.svg}, {tag: TypeScript, icon: /article-icons/typescript.svg}]
@@ -210,6 +210,7 @@ function Button({ children, onClick, variant = 'primary', disabled }: ButtonProp
 }
 
 // 方法2: React.FCを使う（現在は非推奨）
+// ※現在は非推奨。方法1を使用してください
 const Button: React.FC<ButtonProps> = ({ children, onClick, variant = 'primary', disabled }) => {
   return (
     <button onClick={onClick} disabled={disabled}>
@@ -264,7 +265,7 @@ const [items, setItems] = useState<string[]>([]);
 
 // useRef
 const inputRef = useRef<HTMLInputElement>(null);
-const timerRef = useRef<NodeJS.Timeout | null>(null);
+const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 // useContext
 interface ThemeContextType {
@@ -563,6 +564,8 @@ function UserList() {
 
 ### カスタムフックでのジェネリクス
 
+> **注記**: 以下の`useFetch`はジェネリクスの学習用の実装例です。実務ではデータ取得には[TanStack Query](https://tanstack.com/query)の使用が推奨されます。
+
 ```typescript
 // 汎用的なデータ取得フック
 function useFetch<T>(url: string) {
@@ -748,6 +751,42 @@ const counts: StatusCounts = {
   approved: 10,
   rejected: 2
 };
+```
+
+### satisfies演算子
+
+TypeScript 4.9で導入された`satisfies`演算子を使うと、型チェックを行いながら、より具体的な型推論を維持できます。
+
+```typescript
+interface Config {
+  theme: 'light' | 'dark';
+  fontSize: number;
+  debug: boolean;
+}
+
+// as Configだと型推論が広がってしまう
+const config1: Config = {
+  theme: 'dark',
+  fontSize: 14,
+  debug: false,
+};
+// config1.theme は 'light' | 'dark' 型
+
+// satisfiesなら型チェック + 具体的な型推論を両立
+const config2 = {
+  theme: 'dark',
+  fontSize: 14,
+  debug: false,
+} satisfies Config;
+// config2.theme は 'dark' 型（リテラル型が維持される）
+
+// as const satisfies の組み合わせパターン
+const ROUTES = {
+  home: '/',
+  about: '/about',
+  contact: '/contact',
+} as const satisfies Record<string, string>;
+// 値がreadonlyかつリテラル型で、Record<string, string>の型チェックも通る
 ```
 
 ## 型ドリブン開発の実践

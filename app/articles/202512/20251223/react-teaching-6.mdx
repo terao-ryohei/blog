@@ -1,7 +1,7 @@
 ---
 title: React勉強会資料 Hooks応用編
 date: 2025-12-23T10:00:00.000Z
-update: 2025-12-23T10:00:00.000Z
+update: 2026-02-19
 description: パフォーマンス最適化とReact 19の新機能 - useMemo、useCallback、useTransition、最新Hooksを学ぶ
 iconUrl: /article-icons/react.svg
 tags: [{tag: React, icon: /article-icons/react.svg}]
@@ -128,6 +128,10 @@ const sortedList = useMemo(() => {
 }, [items]);
 ```
 
+> **React Compilerについて**
+>
+> React Compilerが有効な環境では、これらの最適化は自動で行われます。手動でuseMemoを書く必要がない場合がほとんどです。ただし、最適化の仕組みを理解しておくことは重要です。
+
 ## useCallback - 関数をキャッシュする
 
 関数定義をメモ化して、子コンポーネントの不要な再レンダリングを防ぎます。
@@ -229,6 +233,87 @@ function TodoList() {
 ❌ **使わなくて良い場合**:
 - イベントハンドラ（最適化されていない子に渡す場合）
 - コンポーネント内でのみ使う関数
+
+> **React Compilerについて**
+>
+> React Compilerが有効な環境では、これらの最適化は自動で行われます。手動でuseCallbackを書く必要がない場合がほとんどです。ただし、最適化の仕組みを理解しておくことは重要です。
+
+## React Compiler - 自動メモ化
+
+React 19から実験的に導入され、将来的に標準化予定の**React Compiler**（旧称: React Forget）について解説します。
+
+### React Compilerとは
+
+React Compilerは、useMemoやuseCallbackを**自動的に適用**するコンパイラです。Reactチームが開発しており、コードを静的解析してメモ化が必要な箇所を自動で最適化します。
+
+```jsx
+// あなたが書くコード（メモ化なし）
+function TodoList({ todos, onToggle }) {
+  const filteredTodos = todos.filter(t => !t.done);
+
+  return (
+    <ul>
+      {filteredTodos.map(todo => (
+        <TodoItem key={todo.id} todo={todo} onToggle={onToggle} />
+      ))}
+    </ul>
+  );
+}
+
+// React Compilerが自動生成するイメージ（概念）
+function TodoList({ todos, onToggle }) {
+  const filteredTodos = useMemo(
+    () => todos.filter(t => !t.done),
+    [todos]
+  );
+  const memoizedToggle = useCallback(onToggle, [onToggle]);
+
+  return (
+    <ul>
+      {filteredTodos.map(todo => (
+        <TodoItem key={todo.id} todo={todo} onToggle={memoizedToggle} />
+      ))}
+    </ul>
+  );
+}
+```
+
+### 使える環境
+
+React Compilerを使うには以下が必要です：
+
+- **React 19以上**
+- **Babel plugin** または **SWC plugin**（`babel-plugin-react-compiler` / `@swc/plugin-react-compiler`）
+
+```bash
+# Babel を使う場合
+npm install babel-plugin-react-compiler
+
+# Next.js（SWC）を使う場合（Next.js 15+）
+npm install @swc/plugin-react-compiler
+```
+
+```js
+// babel.config.js
+module.exports = {
+  plugins: [
+    'react-compiler',
+  ],
+};
+```
+
+### React Compilerを使っても知識は必要
+
+React Compilerが普及しても、useMemoとuseCallbackの知識は引き続き重要です：
+
+1. **Compilerが対応できないケース**: 複雑な副作用を伴うパターンや、一部の動的なコードパターンでは手動メモ化が必要な場合があります
+2. **レガシー環境**: React 18以前のプロジェクトではCompilerを使えません
+3. **理解のため**: 最適化の仕組みを知ることで、パフォーマンス問題のデバッグが容易になります
+4. **段階的移行**: 既存プロジェクトにCompilerを導入する際、既存のuseMemoやuseCallbackを理解する必要があります
+
+> **「計測してから最適化する」原則は変わらない**
+>
+> React Compilerを使っていても、まずReact DevToolsのProfilerで問題を計測してから最適化するアプローチは変わりません。Compilerはベストエフォートで最適化しますが、万能ではありません。
 
 ## React.memo - コンポーネントのメモ化
 
@@ -502,6 +587,109 @@ function Heading({ children }) {
   );
 }
 ```
+
+#### Server Componentsと組み合わせるパターン
+
+`use()`は、Server Componentsで作ったPromiseをClient Components側で受け取って読む構成でも役立ちます。
+
+```tsx
+// app/posts/page.tsx (Server Component)
+import { Suspense } from 'react';
+import { CommentsClient } from './CommentsClient';
+
+function getComments(postId: string) {
+  return fetch(`https://example.com/api/posts/${postId}/comments`).then(res => res.json());
+}
+
+export default function PostPage({ params }) {
+  const commentsPromise = getComments(params.id);
+  return (
+    <Suspense fallback={<div>読み込み中...</div>}>
+      <CommentsClient commentsPromise={commentsPromise} />
+    </Suspense>
+  );
+}
+```
+
+```tsx
+// app/posts/CommentsClient.tsx (Client Component)
+'use client';
+
+import { use } from 'react';
+
+export function CommentsClient({ commentsPromise }) {
+  const comments = use(commentsPromise);
+  return (
+    <ul>
+      {comments.map(comment => (
+        <li key={comment.id}>{comment.text}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+#### Server ComponentsからClient Componentへのデータ受け渡し
+
+Server Componentsでデータをフェッチし、PromiseをClient Componentに渡して`use()`で読み取るパターンです。
+
+```tsx
+// PostPage.tsx（Server Component）
+import { Suspense } from 'react';
+import { ClientComments } from './ClientComments';
+
+async function PostPage({ postId }: { postId: string }) {
+  // サーバー側でPromiseを作成（awaitしない）
+  const commentsPromise = fetch(`/api/posts/${postId}/comments`)
+    .then(res => res.json());
+
+  return (
+    <article>
+      <h1>記事タイトル</h1>
+      <p>記事本文...</p>
+
+      {/* PromiseをClient Componentに渡す */}
+      <Suspense fallback={<div>コメント読み込み中...</div>}>
+        <ClientComments commentsPromise={commentsPromise} />
+      </Suspense>
+    </article>
+  );
+}
+```
+
+```tsx
+// ClientComments.tsx（Client Component）
+'use client';
+
+import { use } from 'react';
+
+type Comment = { id: string; author: string; text: string };
+
+export function ClientComments({
+  commentsPromise,
+}: {
+  commentsPromise: Promise<Comment[]>;
+}) {
+  // use()でPromiseを読み取る（Suspenseが解決を待つ）
+  const comments = use(commentsPromise);
+
+  return (
+    <ul>
+      {comments.map(comment => (
+        <li key={comment.id}>
+          <strong>{comment.author}</strong>: {comment.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+このパターンのメリット：
+
+- **データ取得をサーバー側に集約**: APIキーなどの秘密情報をクライアントに露出しない
+- **ストリーミングで段階的表示**: Suspenseと組み合わせてデータが届き次第UIを更新できる
+- **柔軟な制御**: Client Component側でローカルstateと組み合わせて使える
 
 ### useActionState - フォーム送信の管理
 

@@ -1,7 +1,7 @@
 ---
 title: React勉強会資料 Hooks基礎編
 date: 2025-12-23T09:19:52.870Z
-update: 2025-12-23T09:19:52.870Z
+update: 2026-02-19
 description: React Hooksの基本をマスター - useState、useEffect、useContextなど必須のHooksを学ぶ
 iconUrl: /article-icons/react.svg
 tags: [{tag: React, icon: /article-icons/react.svg}]
@@ -346,6 +346,8 @@ function Header() {
 }
 ```
 
+> **注意**: Contextの値が変わると、そのContextを使用する全てのコンポーネントが再レンダリングされます。頻繁に更新される値にContextを使うとパフォーマンス問題を引き起こす可能性があります。そのような場合は、**Zustand**等の外部状態管理ライブラリの使用を検討しましょう。
+
 ## Ref Hooks：値を保持する
 
 ### useRef - DOM参照と値の保持
@@ -430,27 +432,49 @@ function Stopwatch() {
 
 ライフサイクル編で詳しく学びましたが、ここでも復習します。
 
-**データ取得**
+**document.titleの更新**
 
 ```jsx
-function UserProfile({ userId }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
+function PageTitle({ title }) {
   useEffect(() => {
-    setLoading(true);
-    fetch(`/api/users/${userId}`)
-      .then(res => res.json())
-      .then(data => {
-        setUser(data);
-        setLoading(false);
-      });
-  }, [userId]); // userIdが変わったら再取得
+    // ページタイトルを更新する副作用
+    document.title = title;
 
-  if (loading) return <div>Loading...</div>;
-  return <div>{user?.name}</div>;
+    // クリーンアップ: コンポーネントのアンマウント時に元のタイトルに戻す
+    return () => {
+      document.title = 'My App';
+    };
+  }, [title]); // titleが変わったら再実行
+
+  return <h1>{title}</h1>;
 }
 ```
+
+**メディアクエリの監視**
+
+```jsx
+function ResponsiveComponent() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+
+    // 初期値を設定
+    setIsMobile(mediaQuery.matches);
+
+    // 変化を監視
+    const handler = (e) => setIsMobile(e.matches);
+    mediaQuery.addEventListener('change', handler);
+
+    // クリーンアップ: リスナーを解除
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []); // マウント時のみ実行
+
+  return <div>{isMobile ? 'モバイル表示' : 'デスクトップ表示'}</div>;
+}
+```
+
+> **注意**: useEffectでのデータ取得は、競合状態やキャッシュ管理の問題を自前で解決する必要があり複雑です。実務では **[TanStack Query](https://tanstack.com/query)** の使用が推奨されます。
 
 ### useLayoutEffect - 同期的な副作用
 
@@ -535,6 +559,8 @@ function useCustomHook() {
 ## カスタムHooks：ロジックの再利用
 
 共通のロジックをカスタムHookとして抽出できます。
+
+> **実務では**: データ取得には **[TanStack Query](https://tanstack.com/query)** のカスタムフック、フォーム管理には **[react-hook-form](https://react-hook-form.com/)**、状態管理には **[Zustand](https://zustand-demo.pmnd.rs/)** のフックなど、ライブラリが提供するフックを活用するのが一般的です。
 
 ### useLocalStorage - ローカルストレージと同期
 

@@ -1,7 +1,7 @@
 ---
 title: React勉強会資料 アーキテクチャ編
 date: 2025-12-23T09:06:13.640Z
-update: 2025-12-23T09:06:13.640Z
+update: 2026-02-19
 description: Reactアプリケーションの設計原則とスケーラブルなディレクトリ構成を学ぶ
 iconUrl: /article-icons/react.svg
 tags: [{tag: React, icon: /article-icons/react.svg}]
@@ -28,6 +28,44 @@ tags: [{tag: React, icon: /article-icons/react.svg}]
 - チームメンバー間で書き方がバラバラになる
 
 こうした問題を防ぐために、**設計原則**と**適切なディレクトリ構成**が必要です。
+
+## Server Componentsアーキテクチャ
+
+React + Next.js App Routerでは、UIをServer ComponentsとClient Componentsに分割して設計するのが基本です。
+
+- **Server Components**: サーバーで実行し、データ取得や重い処理を担当する
+- **Client Components**: ブラウザで実行し、クリックや入力などのインタラクションを担当する
+- **境界設計**: Client Componentが必要なファイルだけに `"use client"` を付ける
+
+```tsx
+// app/users/page.tsx (Server Component)
+import { UserList } from './UserList';
+
+async function getUsers() {
+  const res = await fetch('https://example.com/api/users', { cache: 'no-store' });
+  return res.json();
+}
+
+export default async function UsersPage() {
+  const users = await getUsers();
+  return <UserList users={users} />;
+}
+```
+
+```tsx
+// app/users/UserList.tsx (Client Component)
+'use client';
+
+export function UserList({ users }) {
+  return (
+    <ul>
+      {users.map(user => <li key={user.id}>{user.name}</li>)}
+    </ul>
+  );
+}
+```
+
+データ取得をServer Components側に寄せることで、クライアント側の`useEffect + fetch`依存を減らし、初期表示や保守性を改善できます。
 
 ## なぜアーキテクチャが重要なのか
 
@@ -269,21 +307,18 @@ function UserList() {
 // ✅ 良い例：抽象化されたフックに依存
 function UserList() {
   // どのようにデータを取得するかは関心外
-  const { users } = useUsers();
+  const { data: users } = useUsers();
 
-  return <ul>{users.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
+  return <ul>{users?.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
 }
 
-// データ取得ロジックはカスタムフックに隠蔽
+// データ取得ロジックはカスタムフックに隠蔽（TanStack Query使用）
 function useUsers() {
-  const [users, setUsers] = useState([]);
-
-  useEffect(() => {
+  return useQuery({
+    queryKey: ['users'],
     // API実装が変わってもコンポーネント側は影響を受けない
-    apiClient.getUsers().then(setUsers);
-  }, []);
-
-  return { users };
+    queryFn: () => apiClient.getUsers()
+  });
 }
 ```
 
@@ -408,49 +443,48 @@ function PostList() {
 ```
 
 ```jsx
-// ✅ 良い例：共通ロジックを抽出
-function useFetch(url) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+// ✅ 良い例：TanStack Queryで共通化
+import { useQuery } from '@tanstack/react-query';
 
-  useEffect(() => {
-    setLoading(true);
-    fetch(url)
-      .then(res => res.json())
-      .then(data => {
-        setData(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err);
-        setLoading(false);
-      });
-  }, [url]);
+// 各リソースのカスタムフック（queryFnでデータ取得ロジックを集約）
+function useUser() {
+  return useQuery({
+    queryKey: ['user'],
+    queryFn: () => fetch('/api/user').then(res => res.json())
+  });
+}
 
-  return { data, loading, error };
+function usePosts() {
+  return useQuery({
+    queryKey: ['posts'],
+    queryFn: () => fetch('/api/posts').then(res => res.json())
+  });
 }
 
 function UserProfile() {
-  const { data: user, loading, error } = useFetch('/api/user');
+  const { data: user, isLoading, isError, error } = useUser();
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error: {error.message}</div>;
   return <div>{user?.name}</div>;
 }
 
 function PostList() {
-  const { data: posts, loading, error } = useFetch('/api/posts');
+  const { data: posts, isLoading, isError, error } = usePosts();
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
-  return <ul>{posts.map(p => <li key={p.id}>{p.title}</li>)}</ul>;
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error: {error.message}</div>;
+  return <ul>{posts?.map(p => <li key={p.id}>{p.title}</li>)}</ul>;
 }
 ```
+
+TanStack QueryはキャッシュやリトライをDRYに管理してくれるため、`useEffect`＋`useState`で書くより大幅にコードが減ります。
 
 ## Feature-basedディレクトリ構成
 
 大規模なReactアプリケーションでは、**Feature-based（機能ベース）**のディレクトリ構成が推奨されます。これは[bulletproof-react](https://github.com/alan2207/bulletproof-react)でも採用されている構成です。
+
+Next.js App Routerを使う場合も、`app/`配下にルーティングを置き、ビジネスロジックやUIモジュールは`features/`配下に寄せる形で同じ原則を適用できます。
 
 ### 基本構成
 
@@ -856,10 +890,15 @@ function UserForm() {
    - 必要になるまで複雑にしない
 
 3. **繰り返しを避ける（DRY）**
-   - 共通ロジックはカスタムフックに
+   - 共通ロジックはカスタムフックやTanStack Queryで管理
    - 共通UIは共有コンポーネントに
 
-4. **Feature-basedディレクトリ構成**
+4. **Server Componentsを活用する（Next.js App Router）**
+   - データ取得はServer Components側で行う
+   - インタラクティブな部分だけClient Componentにする
+   - `"use client"`の境界を末端に追いやる
+
+5. **Feature-basedディレクトリ構成**
    - 機能ごとにディレクトリを分ける
    - 機能間の依存を制限する
    - 一方向のコードフローを維持する
