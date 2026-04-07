@@ -46,7 +46,7 @@ body {
 }
 
 .markdown strong {
-  @apply font-bold;
+  @apply font-bold dark:text-white;
 }
 
 .markdown strong a {
@@ -89,7 +89,7 @@ body {
   @apply text-sm border-l-4 border-gray-300 pl-4 pr-4 text-gray-600 dark:text-gray-300;
 }
 
-.markdown code:not([data-theme="moonlight-ii"]) {
+.markdown :not(pre) > code:not([data-theme="moonlight-ii"]) {
   @apply font-mono text-sm inline bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-200 rounded px-1.5 py-1 mx-0.5 tracking-wide;
 }
 
@@ -97,11 +97,11 @@ body {
   @apply font-mono text-sm;
 }
 .markdown pre {
-  @apply bg-gray-100 rounded p-1;
+  @apply bg-gray-900 text-gray-100 rounded-lg p-6 my-6 overflow-x-auto;
 }
 
 .markdown pre code {
-  @apply block bg-transparent p-0 overflow-visible rounded-none;
+  @apply block bg-transparent text-inherit text-sm font-mono leading-relaxed p-0 m-0 overflow-visible rounded-none;
 }
 
 .markdown ul {
@@ -149,6 +149,33 @@ body {
 
 button {
   cursor: pointer;
+}
+
+/* TOC (tocbot) */
+.toc .toc-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc .toc-list .toc-list {
+  padding-left: 1rem;
+}
+
+.toc .toc-list-item {
+  margin: 0.25rem 0;
+}
+
+.toc .toc-link {
+  @apply text-sm text-slate-600 dark:text-gray-400 no-underline transition-colors duration-150;
+}
+
+.toc .toc-link:hover {
+  @apply text-primary;
+}
+
+.toc .toc-link.is-active-link {
+  @apply text-primary font-semibold;
 }
 
 .youtube {

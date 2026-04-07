@@ -12,13 +12,13 @@ export default createRoute((c) => {
   const latestPosts = getLatestPostsWithoutTargetPost("");
   const hasLatestPosts = latestPosts.length > 0;
 
-  const tags = [
-    ...new Set(
-      posts.flatMap(({ frontmatter: { tags } }: { frontmatter: Frontmatter }) =>
-        tags.map((tag) => tag),
-      ),
-    ),
-  ];
+  const tagMap = new Map<string, { tag: string; icon: string }>();
+  for (const { frontmatter: { tags: postTags } } of posts as { frontmatter: Frontmatter }[]) {
+    for (const t of postTags ?? []) {
+      if (!tagMap.has(t.tag)) tagMap.set(t.tag, t);
+    }
+  }
+  const tags = [...tagMap.values()];
 
   let filteredPosts = posts;
 
@@ -115,7 +115,7 @@ export default createRoute((c) => {
           ))}
         </div>
       </div>
-      <div class={"flex-col col-span-2 gap-4 flex max-md:hidden"}>
+      <div class={"flex-col col-span-2 gap-4 flex max-md:hidden max-w-[280px] shrink-0"}>
         <div class={"flex justify-center items-center p-4"}>
           <div>
             <a

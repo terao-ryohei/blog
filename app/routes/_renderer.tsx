@@ -77,7 +77,7 @@ export default jsxRenderer(({ children, title, entryName, frontmatter }) => {
         </Header>
         <main
           class={
-            "w-full lg:max-w-[80%] mt-22 px-12 max-sm:px-0 max-md:mt-12 max-sm:mt-18"
+            "w-full lg:max-w-[90%] mt-22 px-12 max-sm:px-4 max-md:mt-12 max-sm:mt-18"
           }
         >
           {children}

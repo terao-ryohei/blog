@@ -45,7 +45,7 @@ export default createRoute(
         <div class={"flex gap-8 max-md:flex-col"}>
           <div
             class={
-              "bg-gray-200 dark:bg-gray-700 py-8 px-14 sm:rounded-md w-[70%] max-md:w-full"
+              "bg-gray-200 dark:bg-gray-700 py-8 px-14 sm:rounded-md w-[75%] max-md:w-full"
             }
           >
             <div class={"flex mb-10 gap-2 items-center"}>
