@@ -1,7 +1,10 @@
 import { createRoute } from "honox/factory";
 
 export default createRoute((c) => {
-  const robotsTxt = `User-agent: * 
-  Allow: /`;
+  const robotsTxt = `User-agent: *
+Allow: /
+Disallow: /ogps/
+
+Sitemap: https://terastech.jp/sitemap.xml`;
   return c.text(robotsTxt, 200);
 });

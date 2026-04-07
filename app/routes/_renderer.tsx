@@ -48,7 +48,7 @@ export default jsxRenderer(({ children, title, entryName, frontmatter }) => {
         ) : (
           <script src="/app/theme.ts" />
         )}
-        <meta property="og:type" content="article" />
+        <meta property="og:type" content={title ? "article" : "website"} />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={description} />
         <meta property="og:site_name" content={blogName} />
@@ -56,6 +56,13 @@ export default jsxRenderer(({ children, title, entryName, frontmatter }) => {
         <meta name="x:site" content="@system_dolphin" />
         <meta name="x:title" content={pageTitle} />
         <meta name="x:description" content={description} />
+        <link rel="canonical" href={`https://terastech.jp${pagePath}`} />
+        {frontmatter?.date && (
+          <meta property="article:published_time" content={frontmatter.date} />
+        )}
+        {frontmatter?.update && (
+          <meta property="article:modified_time" content={frontmatter.update} />
+        )}
         <title>{pageTitle}</title>
         <Script src="/app/client.ts" async />
         <Style />
@@ -68,6 +75,44 @@ export default jsxRenderer(({ children, title, entryName, frontmatter }) => {
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
+        {title && frontmatter ? (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "Article",
+                headline: frontmatter.title,
+                description: frontmatter.description,
+                datePublished: frontmatter.date,
+                dateModified: frontmatter.update || frontmatter.date,
+                author: {
+                  "@type": "Person",
+                  name: "terao",
+                },
+                publisher: {
+                  "@type": "Organization",
+                  name: "terastech",
+                  url: "https://terastech.jp",
+                },
+                image: `https://terastech.jp/ogps/${entryName}.png`,
+                url: `https://terastech.jp/entry/${entryName}`,
+              }),
+            }}
+          />
+        ) : (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                name: "terastech",
+                url: "https://terastech.jp",
+              }),
+            }}
+          />
+        )}
       </head>
       <body
         class={"flex flex-col items-center mb-2 bg-[#fbf9f2] dark:bg-zinc-800"}
