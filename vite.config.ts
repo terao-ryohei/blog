@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import honox from "honox/vite";
 import client from "honox/vite/client";
 import rehypePrettyCode from "rehype-pretty-code";
+import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
@@ -47,7 +48,7 @@ export default defineConfig(({ mode }) => {
           remarkGfm,
           remarkParse,
         ],
-        rehypePlugins: [rehypeStringify, [rehypePrettyCode, { theme: theme }]],
+        rehypePlugins: [rehypeSlug, rehypeStringify, [rehypePrettyCode, { theme: theme }]],
       }),
 
       // 記事内の画像を特定のディレクトリに吐き出すように
