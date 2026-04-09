@@ -54,7 +54,7 @@ body {
 }
 
 .markdown a {
-  @apply underline text-primary decoration-primary/40 underline-offset-2 hover:decoration-primary transition-colors;
+  @apply underline text-emerald-800 dark:text-emerald-400 decoration-emerald-800/40 dark:decoration-emerald-400/40 underline-offset-2 hover:decoration-emerald-800 dark:hover:decoration-emerald-400 transition-colors;
 }
 
 .markdown p {
