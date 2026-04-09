@@ -9,7 +9,7 @@ export const Toc = () => {
       tocSelector: ".toc",
       contentSelector: ".markdown",
       headingSelector: "h2, h3",
-      scrollSmoothOffset: -10,
+      scrollSmoothOffset: -80,
       tocScrollingWrapper: null,
     });
     return () => tocbot.destroy();

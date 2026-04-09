@@ -71,10 +71,12 @@ body {
 
 .markdown h2 {
   @apply leading-snug text-2xl mb-4 mt-6 pb-2 font-bold;
+  scroll-margin-top: 5rem;
 }
 
 .markdown h3 {
   @apply leading-snug text-lg mb-4 mt-6 font-bold;
+  scroll-margin-top: 5rem;
 }
 
 .markdown h4 {
