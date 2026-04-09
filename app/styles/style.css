@@ -167,15 +167,15 @@ button {
 }
 
 .toc .toc-link {
-  @apply text-sm text-slate-600 dark:text-gray-400 no-underline transition-colors duration-150;
+  @apply text-sm text-slate-600 dark:text-gray-300 no-underline transition-colors duration-150;
 }
 
 .toc .toc-link:hover {
-  @apply text-primary;
+  @apply text-emerald-800 dark:text-emerald-400;
 }
 
 .toc .toc-link.is-active-link {
-  @apply text-primary font-semibold;
+  @apply text-emerald-800 dark:text-emerald-400 font-semibold;
 }
 
 .youtube {

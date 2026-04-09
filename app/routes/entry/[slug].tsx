@@ -97,7 +97,7 @@ export default createRoute(
                             >
                                 <div
                                     class={
-                                        "text-xs text-gray-400 text-center mb-1"
+                                        "text-xs text-gray-600 dark:text-gray-300 text-center mb-1"
                                     }
                                 >
                                     もしよろしければお願いします

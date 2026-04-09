@@ -44,7 +44,7 @@ export const ArticleListItem = ({
         </h2>
         <div class={"text-end max-sm:absolute max-sm:right-2 max-sm:top-0"}>
           <time
-            class={"text-gray-500 dark:text-gray-400 text-sm max-md:text-xs"}
+            class={"text-gray-600 dark:text-gray-400 text-sm max-md:text-xs"}
           >
             {formattedDate(date)}
           </time>
