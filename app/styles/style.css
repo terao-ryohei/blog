@@ -53,6 +53,10 @@ body {
   @apply font-bold;
 }
 
+.markdown a {
+  @apply underline text-primary decoration-primary/40 underline-offset-2 hover:decoration-primary transition-colors;
+}
+
 .markdown p {
   @apply text-base leading-7 my-4;
 }
@@ -62,11 +66,11 @@ body {
 }
 
 .markdown h1 {
-  @apply leading-tight text-3xl mb-0 mt-6 pb-2 font-bold;
+  @apply leading-snug text-3xl mb-0 mt-6 pb-2 font-bold;
 }
 
 .markdown h2 {
-  @apply leading-tight text-2xl mb-4 mt-6 pb-2 font-bold;
+  @apply leading-snug text-2xl mb-4 mt-6 pb-2 font-bold;
 }
 
 .markdown h3 {
